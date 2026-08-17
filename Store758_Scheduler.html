@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Store 758 — Weekly Scheduler</title>
+<style>
+  :root{
+    --navy:#1e2a4a; --navy-dk:#141d36; --blue:#2563eb; --blue-lt:#dbeafe;
+    --green:#16a34a; --green-lt:#dcfce7; --amber:#d97706; --amber-lt:#fef3c7;
+    --red:#dc2626; --red-lt:#fee2e2; --gray:#6b7280; --gray-lt:#f3f4f6;
+    --border:#d1d5db; --bg:#f8fafc;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:Arial, Helvetica, sans-serif; margin:0; background:var(--bg); color:#111827; font-size:14px;}
+  header{background:var(--navy); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;}
+  header h1{font-size:18px; margin:0; font-weight:700;}
+  header .sub{font-size:12px; color:#9fb0d9; margin-top:2px;}
+  .toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  button{font-family:inherit; font-size:13px; cursor:pointer; border-radius:6px; border:1px solid transparent; padding:8px 12px; font-weight:600; transition:background .12s;}
+  .btn-primary{background:var(--blue); color:#fff;}
+  .btn-primary:hover{background:#1d4ed8;}
+  .btn-light{background:#fff; color:var(--navy); border-color:#cbd5e1;}
+  .btn-light:hover{background:#eef2ff;}
+  .btn-ghost{background:transparent; color:#e5e9f5; border-color:#48568a;}
+  .btn-ghost:hover{background:#2a3760;}
+  .btn-danger{background:#fff; color:var(--red); border-color:#f3b4b4;}
+  .btn-danger:hover{background:var(--red-lt);}
+  .btn-sm{padding:4px 9px; font-size:12px;}
+  button:disabled{opacity:.5; cursor:not-allowed;}
+  #unsavedBanner{background:#fef3c7; color:#78350f; border-bottom:1px solid #f5d98b; padding:9px 20px; font-size:13px; font-weight:600; text-align:center;}
+  nav{display:flex; background:#fff; border-bottom:2px solid var(--border); padding:0 20px; gap:2px; flex-wrap:wrap;}
+  nav button{background:none; border:none; border-bottom:3px solid transparent; border-radius:0; padding:12px 16px; color:#4b5563; font-weight:700;}
+  nav button.active{color:var(--blue); border-bottom-color:var(--blue);}
+  nav button:hover{color:var(--blue);}
+  main{padding:20px; max-width:1500px; margin:0 auto;}
+  section{display:none;}
+  section.active{display:block;}
+  h2{font-size:17px; margin:2px 0 4px;}
+  h3{font-size:14px; margin:18px 0 8px; color:var(--navy);}
+  p.hint{color:var(--gray); font-size:12.5px; margin:2px 0 14px; line-height:1.5;}
+  .card{background:#fff; border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px;}
+  table{border-collapse:collapse; width:100%; font-size:13px;}
+  th, td{border:1px solid var(--border); padding:6px 8px; text-align:center; vertical-align:middle;}
+  th{background:var(--navy); color:#fff; font-size:12px; white-space:nowrap;}
+  td.leftalign, th.leftalign{text-align:left;}
+  tr:nth-child(even) td{background:#fafbfc;}
+  .tbl-wrap{overflow-x:auto;}
+  .pill{display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700;}
+  .pill-ok{background:var(--green-lt); color:#166534;}
+  .pill-under{background:var(--amber-lt); color:#92400e;}
+  .pill-over{background:var(--red-lt); color:#991b1b;}
+  .daycell{cursor:pointer; min-width:98px; position:relative; user-select:none;}
+  .daycell:hover{background:var(--blue-lt) !important;}
+  .daycell.off{color:#9ca3af; font-style:italic;}
+  .daycell.manual::after{content:"✎"; position:absolute; top:1px; right:3px; font-size:9px; color:var(--blue);}
+  .daycell.conflict{outline:2px solid var(--red); outline-offset:-2px;}
+  .daycell .warn{position:absolute; top:1px; left:3px; font-size:10px; color:var(--red);}
+  .rowbtns button{margin-right:4px;}
+  .toprow{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+  .weekbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .weekbar select, .weekbar input[type=date]{padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-family:inherit; font-size:13px;}
+  label{font-size:12.5px; font-weight:600; color:#374151; display:block; margin-bottom:3px;}
+  input[type=text], input[type=number], input[type=date], input[type=time], select, textarea{
+    width:100%; padding:7px 8px; border:1px solid var(--border); border-radius:6px; font-family:inherit; font-size:13px;
+  }
+  .field{margin-bottom:10px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .grid4{display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
+  .modal-backdrop{position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:flex-start; justify-content:center; z-index:1000; overflow:auto; padding:30px 12px;}
+  .modal-backdrop.show{display:flex;}
+  .modal{background:#fff; border-radius:10px; width:100%; max-width:640px; padding:20px 22px; box-shadow:0 10px 40px rgba(0,0,0,.25);}
+  .modal h3{margin-top:0;}
+  .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:16px; border-top:1px solid var(--border); padding-top:14px;}
+  .daybox{border:1px solid var(--border); border-radius:8px; padding:8px 10px; margin-bottom:6px;}
+  .daybox .dtitle{font-weight:700; font-size:12.5px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;}
+  .modebtns{display:flex; gap:4px;}
+  .modebtn{padding:3px 8px; font-size:11px; border:1px solid var(--border); background:#f3f4f6; color:#374151;}
+  .modebtn.on{background:var(--blue); color:#fff; border-color:var(--blue);}
+  .winrow{display:flex; gap:6px; align-items:center; margin-top:4px;}
+  .winrow input{flex:1;}
+  .winrow button{padding:3px 8px;}
+  .badge{display:inline-block; background:var(--blue-lt); color:#1e40af; font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px;}
+  .toast{position:fixed; bottom:20px; right:20px; background:var(--navy); color:#fff; padding:12px 18px; border-radius:8px; font-size:13px; font-weight:600; box-shadow:0 6px 20px rgba(0,0,0,.3); z-index:2000; opacity:0; transform:translateY(8px); transition:all .2s;}
+  .toast.show{opacity:1; transform:translateY(0);}
+  .dirty-dot{width:8px; height:8px; border-radius:50%; background:#fbbf24; display:inline-block; margin-right:6px; vertical-align:middle;}
+  .readme p, .readme li{line-height:1.6; font-size:13.5px;}
+  .readme li{margin-bottom:6px;}
+  .cov-table td{font-size:12px;}
+  .small{font-size:12px; color:var(--gray);}
+  .checklist{display:flex; gap:14px; flex-wrap:wrap; margin-top:6px;}
+  .checklist label{display:flex; gap:5px; align-items:center; font-weight:600;}
+  #fileLoadInput{display:none;}
+  @media print{
+    header,nav,.no-print{display:none !important;}
+    body{background:#fff;}
+    main{padding:0; max-width:none;}
+    section{display:none !important;}
+    section#printArea{display:block !important;}
+    .card{border:none; padding:0;}
+  }
+</style>
+</head>
+<body>
+
+<header class="no-print">
+  <div>
+    <h1>Store 758 — Weekly Scheduler</h1>
+    <div class="sub" id="storeSub">District AR12 · Region USNOR</div>
+  </div>
+  <div class="toolbar">
+    <span class="small" id="dirtyIndicator" style="color:#cbd5e1;"></span>
+    <button class="btn-ghost" id="btnSave">💾 Save Data</button>
+    <button class="btn-ghost" id="btnLoad">📂 Load Data</button>
+    <input type="file" id="fileLoadInput" accept="application/json">
+    <button class="btn-light" id="btnPrint">🖨️ Print / Save PDF</button>
+  </div>
+</header>
+<div id="unsavedBanner" class="no-print" style="display:none;">
+  ⚠️ You have changes that only exist in this browser tab right now. Click <b>💾 Save Data</b> to keep them — closing or refreshing this page without saving will lose them.
+  <button class="btn-primary btn-sm" id="btnSaveFromBanner" style="margin-left:10px;">💾 Save Data Now</button>
+</div>
+
+<nav class="no-print">
+  <button data-tab="readme" class="active">Read Me</button>
+  <button data-tab="roster">Staff Roster</button>
+  <button data-tab="storehours">Store Hours</button>
+  <button data-tab="timeoff">Time-Off Requests</button>
+  <button data-tab="schedule">Schedule</button>
+</nav>
+
+<main>
+
+  <!-- READ ME -->
+  <section id="readme" class="active readme">
+    <div class="card">
+      <h2>How this works</h2>
+      <p class="hint" style="margin-top:8px;">This tool is preloaded with Store 758's real staff roster, availability, and store hours — the same data as the Excel workbook. Everything runs in your browser; nothing is uploaded anywhere.</p>
+      <h3>Quick start</h3>
+      <ol>
+        <li><b>Staff Roster</b> — add, edit, or remove employees. Each person has a job title, a weekly target/max, a minimum hours floor, and a day-by-day availability pattern.</li>
+        <li><b>Store Hours</b> — the store's open/close time for each day of the week. Shifts are never generated outside these hours.</li>
+        <li><b>Time-Off Requests</b> — log a request for a specific employee and week; those days are automatically skipped when you generate that week's schedule.</li>
+        <li><b>Schedule</b> — pick or add a week, enter a <b>Total Hours Budget</b> for that week (required — Generate is disabled until it's set), then click <b>Generate Week</b> to auto-draft shifts. Click any day cell to fine-tune it by hand afterward. Manually edited cells are marked with a small ✎ and are never overwritten by Generate.</li>
+      </ol>
+      <h3>Total Hours Budget</h3>
+      <p>Each week has its own <b>Total Hours Budget</b> — the combined hours for the entire staff that week (e.g. 130). Generate always respects: each employee's own availability, store hours, time-off requests, and their individual Min/Max Hrs — the weekly budget is an <i>additional</i> ceiling on top of all of that, not a replacement for it.</p>
+      <p>When the budget isn't enough to cover everyone at their normal individual target, <b>required roles are filled first</b> — anyone whose Target/Max Hrs is 40 (the Store Manager, Dept Managers, FT Sales Advisor, and Visuals) gets scheduled toward their own normal target before anyone else, in roster order. Whatever's left of the budget is then spread across everyone else, also in roster order. If the budget runs out, people further down the list may get zero hours that week — that's expected, not a bug.</p>
+      <p>The banner above the schedule grid always shows the running total vs. the budget, and turns red if it's ever over — including from manual edits, which are allowed but flagged rather than blocked.</p>
+      <h3>Two more scheduling rules, always on</h3>
+      <ul>
+        <li><b>Required roles work fixed 8-hour shifts.</b> The Store Manager, Dept Managers, FT Sales Advisor, and Visuals get 8-hour shifts on every day they work (shorter only if that day's real window is under 8 hours — e.g. Sunday's shorter store hours). Anyone whose availability already limits them to 5 or fewer days just works all of those at 8h each. Anyone fully available gets 2 days off chosen for them: managers rotate who gets the full weekend off from week to week (the others work the weekend and take 2 weekdays off instead, staggered between them), and other required roles (like a Visual) default to Sunday+Monday off.</li>
+        <li><b>Nobody on staff works more than 5 days a week.</b> Everyone gets at least 2 days off, every week — required roles per the rule above, and everyone else by capping Generate to their 5 longest-window available days instead of spreading thin across every day they're available.</li>
+      </ul>
+      <p class="small">Both rules only govern what <b>Generate</b> does automatically. Manual edits can still override them on individual cells if you need an exception — those cells just won't be touched by Generate afterward.</p>
+      <h3>Saving your work</h3>
+      <p>This is a browser tool with no server behind it, so nothing saves automatically. Click <b>💾 Save Data</b> any time to download a backup file of everything (roster, hours, time-off, all weeks). Click <b>📂 Load Data</b> next time you open this page to pick that file back up exactly where you left off. Keep that file somewhere safe (e.g. email it to yourself or save it in your store's shared folder) — it <i>is</i> your data.</p>
+      <p>Use <b>🖨️ Print / Save PDF</b> on the Schedule tab to print the current week or save it as a PDF for posting or sharing. Use <b>Export CSV</b> (on the Schedule tab) to download the current week as a spreadsheet file you can open in Excel.</p>
+      <h3>Notes</h3>
+      <ul>
+        <li>A day cell with no stated availability can still be scheduled manually — availability only limits the <i>auto-generate</i> step, not manual edits.</li>
+        <li>"Fully Available" means the person can work any time within store hours that day.</li>
+        <li>The <b>Status</b> column flags <span class="pill pill-under">Under</span> if someone is below their weekly minimum, and <span class="pill pill-over">Over</span> if they're above their weekly target — both are just flags to review, nothing is blocked.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ROSTER -->
+  <section id="roster">
+    <div class="toprow">
+      <div><h2>Staff Roster</h2><p class="hint" style="margin:2px 0 0;">24 people preloaded from Store 758's current roster. Add, edit, or remove anyone here — including the second visual employee, once you're ready to add them.</p></div>
+      <button class="btn-primary" id="btnAddEmp">+ Add Employee</button>
+    </div>
+    <div class="card tbl-wrap">
+      <table id="rosterTable"></table>
+    </div>
+  </section>
+
+  <!-- STORE HOURS -->
+  <section id="storehours">
+    <h2>Store Hours</h2>
+    <p class="hint">Used to clip every shift and every "Fully Available" day so nothing gets scheduled outside operating hours.</p>
+    <div class="card" style="max-width:520px;">
+      <table id="storeHoursTable"></table>
+    </div>
+  </section>
+
+  <!-- TIME OFF -->
+  <section id="timeoff">
+    <div class="toprow">
+      <div><h2>Time-Off Requests</h2><p class="hint" style="margin:2px 0 0;">Requests here are auto-skipped when you Generate that week. Existing manual shifts are flagged, not deleted.</p></div>
+      <button class="btn-primary" id="btnAddTimeOff">+ Add Request</button>
+    </div>
+    <div class="card tbl-wrap">
+      <table id="timeOffTable"></table>
+    </div>
+  </section>
+
+  <!-- SCHEDULE -->
+  <section id="schedule">
+    <div class="toprow">
+      <h2>Schedule</h2>
+      <div class="weekbar no-print">
+        <select id="weekSelect"></select>
+        <label class="small" style="margin:0;">Week starts (Sun)</label>
+        <input type="date" id="weekStartInput" style="width:150px;">
+        <button class="btn-light btn-sm" id="btnAddWeek">+ Add Week</button>
+        <button class="btn-light btn-sm" id="btnDupWeek">⧉ Duplicate</button>
+        <button class="btn-danger btn-sm" id="btnDelWeek">Delete Week</button>
+      </div>
+    </div>
+    <div class="card no-print" style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
+      <div>
+        <label for="weekBudgetInput">Total Hours Budget (whole staff, this week) <span style="color:var(--red);">*required</span></label>
+        <input type="number" id="weekBudgetInput" min="0" step="0.5" placeholder="e.g. 130" style="width:140px;">
+      </div>
+      <div id="budgetTotalBanner" class="badge" style="font-size:12.5px; padding:6px 12px;"></div>
+    </div>
+    <div class="card no-print" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <button class="btn-primary" id="btnGenerate">⚡ Generate Week</button>
+      <button class="btn-light" id="btnResetWeek">↺ Reset Week (clear all)</button>
+      <button class="btn-light" id="btnExportCsv">⬇ Export CSV</button>
+      <span class="small" style="margin-left:auto;">✎ = manually edited &nbsp;|&nbsp; click any day cell to edit</span>
+    </div>
+    <p class="hint no-print" id="budgetHint" style="margin-top:-6px;">Required roles (Store Manager, Dept Managers, FT Sales Advisor, Visuals) work fixed 8-hour shifts and are filled toward their normal target first; whatever's left of the budget spreads across everyone else. Nobody works more than 5 days a week. Generate won't run until a budget is set. Manually-added hours count against the budget too, and can push it over — you'll see a warning here, but nothing is blocked.</p>
+    <div id="printArea">
+      <div class="card">
+        <div id="printHeader" style="display:none; margin-bottom:10px;">
+          <h2 style="margin:0;">Store 758 — Weekly Schedule</h2>
+          <div class="small" id="printWeekLabel"></div>
+        </div>
+        <div class="tbl-wrap">
+          <table id="scheduleTable"></table>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0;">Coverage Summary</h3>
+        <div class="tbl-wrap">
+          <table id="coverageTable" class="cov-table"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Employee modal -->
+<div class="modal-backdrop" id="empModalBackdrop">
+  <div class="modal">
+    <h3 id="empModalTitle">Edit Employee</h3>
+    <div class="grid2">
+      <div class="field"><label>Full Name</label><input type="text" id="empName"></div>
+      <div class="field"><label>Job Title</label><input type="text" id="empTitle" placeholder="e.g. PT SALES ADVISOR"></div>
+    </div>
+    <div class="grid4">
+      <div class="field"><label>Type</label>
+        <select id="empType"><option value="FT">FT</option><option value="PT">PT</option></select>
+      </div>
+      <div class="field"><label>Weekly Target / Max Hrs</label><input type="number" id="empCap" min="0" max="80" step="0.5"></div>
+      <div class="field"><label>Min Hrs Floor</label><input type="number" id="empMin" min="0" max="80" step="0.5"></div>
+      <div class="field"><label>Employee ID</label><input type="text" id="empId"></div>
+    </div>
+    <h3 style="margin-bottom:6px;">Weekly Availability</h3>
+    <div id="availEditor"></div>
+    <p class="small" style="margin:10px 0 0;">This applies the change to your current session. Click <b>💾 Save Data</b> (top of the page) afterward to keep it in a file — otherwise it's lost if you close or refresh the page.</p>
+    <div class="modal-actions">
+      <button class="btn-light" id="empCancelBtn">Cancel</button>
+      <button class="btn-primary" id="empSaveBtn">Apply Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shift cell modal -->
+<div class="modal-backdrop" id="shiftModalBackdrop">
+  <div class="modal" style="max-width:380px;">
+    <h3 id="shiftModalTitle">Edit Shift</h3>
+    <div class="grid2">
+      <div class="field"><label>Start</label><input type="time" id="shiftStart"></div>
+      <div class="field"><label>End</label><input type="time" id="shiftEnd"></div>
+    </div>
+    <p class="small" id="shiftAvailNote" style="margin-top:-4px;"></p>
+    <div class="modal-actions" style="justify-content:space-between;">
+      <div>
+        <button class="btn-light btn-sm" id="shiftOffBtn">Mark OFF</button>
+        <button class="btn-light btn-sm" id="shiftClearBtn">Clear (use Auto)</button>
+      </div>
+      <div>
+        <button class="btn-light" id="shiftCancelBtn">Cancel</button>
+        <button class="btn-primary" id="shiftSaveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Time-off modal -->
+<div class="modal-backdrop" id="toModalBackdrop">
+  <div class="modal" style="max-width:460px;">
+    <h3>Add Time-Off Request</h3>
+    <div class="field"><label>Employee</label><select id="toEmp"></select></div>
+    <div class="field"><label>Week</label><select id="toWeek"></select></div>
+    <div class="field"><label>Day(s) off</label>
+      <div class="checklist" id="toDays"></div>
+    </div>
+    <div class="field"><label>Note (optional)</label><input type="text" id="toNote" placeholder="e.g. doctor appointment"></div>
+    <div class="modal-actions">
+      <button class="btn-light" id="toCancelBtn">Cancel</button>
+      <button class="btn-primary" id="toSaveBtn">Save Request</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== CONSTANTS ===================== */
+const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const DAY_NAMES_FULL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+/* ===================== TIME HELPERS ===================== */
+function hhmmToFloat(hhmm){
+  if(!hhmm) return null;
+  const [h,m] = hhmm.split(":").map(Number);
+  return h + (m||0)/60;
+}
+function floatToHHMM(f){
+  let hh = Math.floor(f);
+  let mm = Math.round((f-hh)*60);
+  if(mm===60){hh+=1; mm=0;}
+  hh = hh % 24;
+  return String(hh).padStart(2,"0")+":"+String(mm).padStart(2,"0");
+}
+function floatTo12h(f){
+  let hh = Math.floor(f) % 24;
+  let mm = Math.round((f-Math.floor(f))*60);
+  if(mm===60){hh=(hh+1)%24; mm=0;}
+  const ap = hh>=12 ? "PM":"AM";
+  let h12 = hh % 12; if(h12===0) h12=12;
+  return h12+":"+String(mm).padStart(2,"0")+" "+ap;
+}
+function roundHalf(x){ return Math.floor(x*2+0.5)/2; }
+function parseAvailRawStr(s){
+  if(s==="X") return {mode:"off", windows:[]};
+  if(s==="00:00 - 00:00") return {mode:"full", windows:[]};
+  const segs = s.split(",").map(x=>x.trim());
+  const windows = segs.map(seg=>{
+    const parts = seg.split("-").map(x=>x.trim());
+    return {start:parts[0], end:parts[1]};
+  });
+  return {mode:"custom", windows};
+}
+function fmtDate(iso){
+  const d = new Date(iso+"T00:00:00");
+  return (d.getMonth()+1)+"/"+d.getDate();
+}
+function addDaysISO(iso, n){
+  const d = new Date(iso+"T00:00:00");
+  d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);
+}
+function nearestSundayOnOrBefore(iso){
+  const d = new Date(iso+"T00:00:00");
+  const dow = d.getDay();
+  d.setDate(d.getDate()-dow);
+  return d.toISOString().slice(0,10);
+}
+
+/* ===================== SEED DATA ===================== */
+const SEED_RAW_EMPLOYEES = [
+  ["016880","Joshua","DEPT MGR","FT",32,40, ["00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00"]],
+  ["1010148","Mohamad","FT SALES ADVISOR","FT",12,40, ["09:00 - 19:00","08:00 - 21:00","X","09:00 - 21:00","X","08:00 - 22:00","09:00 - 22:00"]],
+  ["1025236","Tatiana","FT VISUAL - TRNG","FT",0,40, ["00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00"]],
+  ["1025240","Janya","PT SALES ADVISOR","PT",15,29.5, ["00:00 - 12:00","16:00 - 22:00","16:00 - 22:00","X","X","X","00:00 - 12:00"]],
+  ["1028664","Mehajabin","PT SALES ADVISOR","PT",15,29.5, ["X","07:00 - 16:00","07:00 - 16:00","07:00 - 16:00","07:00 - 16:00","X","08:00 - 14:00"]],
+  ["1035101","Harkiran","PT SALES ADVISOR","PT",15,29.5, ["00:00 - 00:00","X","00:00 - 00:00","X","00:00 - 00:00","X","09:00 - 22:00"]],
+  ["1037087","Acer","PT SALES ADVISOR","PT",15,29.5, ["14:00 - 19:00","X","07:00 - 16:00","X","07:00 - 21:00","07:00 - 22:00","07:00 - 22:00"]],
+  ["1038772","Isabelle","PT SALES ADVISOR","PT",15,29.5, ["00:00 - 00:00","X","X","X","X","15:00 - 22:00","00:00 - 00:00"]],
+  ["1039665","Zara","PT SALES ADVISOR","PT",15,29.5, ["00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00"]],
+  ["1043530","Andrea","DEPT MGR","FT",0,40, ["00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00"]],
+  ["1052327","Theo","PT SALES ADVISOR","PT",15,29.5, ["00:00 - 00:00","10:00 - 17:00","10:00 - 17:00","10:00 - 17:00","10:00 - 17:00","10:00 - 17:00","00:00 - 00:00"]],
+  ["1053057","Sophia","PT SEASONAL","PT",15,29.5, ["00:00 - 00:00","16:00 - 00:00","16:00 - 00:00","16:00 - 00:00","19:00 - 00:00","19:00 - 00:00","00:00 - 00:00"]],
+  ["1053432","Achol","PT SALES ADVISOR","PT",15,29.5, ["00:00 - 00:00","00:00 - 00:00","09:00 - 00:00","09:00 - 00:00","09:00 - 00:00","10:00 - 00:00","10:00 - 20:00"]],
+  ["1053435","Michael","PT SALES ADVISOR","PT",15,29.5, ["00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00"]],
+  ["1065211","James","PT SALES ADVISOR","PT",15,29.5, ["12:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00"]],
+  ["1066378","Joseph","PT SALES ADVISOR","PT",15,29.5, ["00:00 - 00:00","16:00 - 00:00","16:00 - 00:00","16:00 - 00:00","16:00 - 00:00","16:00 - 00:00","00:00 - 00:00"]],
+  ["1068730","Dylan","PT SALES ADVISOR","PT",15,29.5, ["08:00 - 00:00","08:00 - 00:00","08:00 - 00:00","08:00 - 14:30","08:00 - 00:00","08:00 - 00:00","08:00 - 00:00"]],
+  ["1071676","Eva","PT SALES ADVISOR","PT",15,29.5, ["00:00 - 00:00","17:00 - 00:00","17:00 - 00:00","17:00 - 00:00","17:00 - 00:00","17:00 - 00:00","00:00 - 00:00"]],
+  ["789448","Sarie","PT SALES ADVISOR","PT",15,29.5, ["11:00 - 19:00","08:30 - 13:00, 15:30 - 21:00","08:30 - 13:00","08:30 - 13:00, 15:30 - 21:00","08:30 - 13:00","08:30 - 13:00, 15:30 - 20:30","12:00 - 22:00"]],
+  ["794943","Tevin","PT SALES ADVISOR","PT",15,29.5, ["X","11:00 - 22:00","11:00 - 22:00","11:00 - 22:00","X","13:00 - 22:00","13:00 - 22:00"]],
+  ["794955","Measmeiling","PT SALES ADVISOR","PT",15,29.5, ["10:00 - 18:00","X","X","X","09:00 - 18:00","09:00 - 18:00","00:00 - 00:00"]],
+  ["864531","Elizabeth","PT SALES ADVISOR","PT",15,29.5, ["10:00 - 19:00","09:00 - 17:00","09:00 - 17:00","09:00 - 17:00","09:00 - 17:00","09:00 - 17:00","09:00 - 17:00"]],
+  ["872745","Jasmine Davis","STORE MGR","FT",32,40, ["00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00","00:00 - 00:00"]],
+  ["955520","Sana","PT SALES ADVISOR","PT",15,29.5, ["X","08:00 - 14:00","08:00 - 14:00","X","08:00 - 14:00","08:00 - 14:00","X"]]
+];
+
+function buildSeedState(){
+  const employees = SEED_RAW_EMPLOYEES.map((row,i)=>{
+    const [id,name,title,type,min,cap,rawAvail] = row;
+    return {
+      uid: "e"+(i+1),
+      id, name, title, type,
+      minHrs: min, cap: cap,
+      availability: rawAvail.map(parseAvailRawStr)
+    };
+  });
+  const storeHours = {
+    0:{open:"11:00",close:"18:00"},
+    1:{open:"10:00",close:"20:00"},
+    2:{open:"10:00",close:"20:00"},
+    3:{open:"10:00",close:"20:00"},
+    4:{open:"10:00",close:"20:00"},
+    5:{open:"10:00",close:"21:00"},
+    6:{open:"10:00",close:"21:00"}
+  };
+  const week1Start = nearestSundayOnOrBefore(new Date().toISOString().slice(0,10));
+  const week1 = makeEmptyWeek("w1","Week 1", week1Start, employees);
+  return {
+    version:1,
+    nextUid: employees.length+1,
+    nextWeekNum: 2,
+    nextToId: 1,
+    employees,
+    storeHours,
+    timeOff: [],
+    weeks: [week1],
+    activeWeekId: "w1"
+  };
+}
+function makeEmptyWeek(id,label,startDate,employees,budgetHours){
+  const schedule = {}, manual = {};
+  employees.forEach(e=>{ schedule[e.uid]=[null,null,null,null,null,null,null]; manual[e.uid]=[false,false,false,false,false,false,false]; });
+  return {id,label,startDate,schedule,manual,budgetHours: (typeof budgetHours==="number" ? budgetHours : null)};
+}
+
+/* ===================== STATE ===================== */
+let state = buildSeedState();
+let dirty = false;
+function markDirty(){
+  dirty = true;
+  document.getElementById("dirtyIndicator").innerHTML = '<span class="dirty-dot"></span>Unsaved changes';
+  document.getElementById("unsavedBanner").style.display = "block";
+}
+function markClean(){
+  dirty = false;
+  document.getElementById("dirtyIndicator").innerHTML = "";
+  document.getElementById("unsavedBanner").style.display = "none";
+}
+window.addEventListener("beforeunload", (e)=>{ if(dirty){ e.preventDefault(); e.returnValue=""; }});
+document.getElementById("btnSaveFromBanner").addEventListener("click", ()=>document.getElementById("btnSave").click());
+
+function ensureEmployeeInAllWeeks(){
+  state.weeks.forEach(w=>{
+    state.employees.forEach(e=>{
+      if(!w.schedule[e.uid]) w.schedule[e.uid] = [null,null,null,null,null,null,null];
+      if(!w.manual[e.uid]) w.manual[e.uid] = [false,false,false,false,false,false,false];
+    });
+    if(typeof w.budgetHours !== "number") w.budgetHours = null; // migrate weeks saved before this feature existed
+  });
+}
+
+function getWeek(id){ return state.weeks.find(w=>w.id===id); }
+function activeWeek(){ return getWeek(state.activeWeekId) || state.weeks[0]; }
+function getEmp(uid){ return state.employees.find(e=>e.uid===uid); }
+
+/* ===================== SCHEDULING ALGORITHM ===================== */
+function computeDayWindow(emp, dayIdx, timeOffSet){
+  if(timeOffSet.has(dayIdx)) return null;
+  const store = state.storeHours[dayIdx];
+  const openH = hhmmToFloat(store.open), closeH = hhmmToFloat(store.close);
+  const avail = emp.availability[dayIdx];
+  if(!avail || avail.mode==="off") return null;
+  if(avail.mode==="full") return {kind:"full", start:openH, end:closeH};
+  let best = null;
+  for(const w of avail.windows){
+    let s = hhmmToFloat(w.start), e = hhmmToFloat(w.end);
+    if(e===null || s===null) continue;
+    if(e<=s) e = 24;
+    e = Math.min(e, closeH);
+    s = Math.max(s, openH);
+    if(e<=s) continue;
+    if(!best || (e-s) > (best.end-best.start)) best = {start:s,end:e};
+  }
+  if(!best) return null;
+  return {kind:"explicit", start:best.start, end:best.end};
+}
+
+// Distributes `personalCap` hours across one employee's active (non-manual, available) days for the
+// given week, using the same waterfill approach as before (spread evenly, clipped to 8h/day and to
+// each day's real window). Returns the total hours actually assigned.
+function assignEmployeeWaterfill(emp, week, windows, manualArr, personalCap){
+  const schedArr = week.schedule[emp.uid];
+  const activeDays = [0,1,2,3,4,5,6].filter(d=>windows[d]!==null && !manualArr[d]);
+  let remainingCap = Math.max(0, personalCap);
+  let remainingDays = activeDays.length;
+  let used = 0;
+  activeDays.forEach(d=>{
+    const {kind,start,end} = windows[d];
+    const maxFeas = Math.min(end-start, 8.0);
+    const target = remainingDays>0 ? remainingCap/remainingDays : 0;
+    let take = Math.min(target, maxFeas, remainingCap);
+    take = roundHalf(take);
+    take = Math.min(take, maxFeas, remainingCap);
+    if(take>0){
+      let s;
+      if(kind==="full"){
+        const windowDur = end-start;
+        const spare = windowDur - take;
+        const offset = Math.min(spare, (d%3)*1.0);
+        s = start+offset;
+      } else {
+        s = start;
+      }
+      schedArr[d] = {start:s, end:s+take};
+      used += take;
+    } else {
+      schedArr[d] = null;
+    }
+    remainingCap -= take;
+    remainingDays -= 1;
+  });
+  return used;
+}
+
+// Picks which days a "flex" required-role employee (fully/near-fully available, needs the algorithm to
+// choose their 2 days off) actually works this week. Managers (title contains "MGR") rotate who gets the
+// full weekend (Sat+Sun) off from week to week; the other managers work the weekend and take 2 weekdays
+// off instead, staggered so they don't both take the same weekdays. Non-manager flex roles (e.g. a
+// Visual) default to a fixed Sun+Mon off, which — given store hours — lands them on a clean 5x8=40.
+function pickFlexRequiredWorkDays(emp, availableDays, isManager, flexManagers, weekendOffMgrUid){
+  let workDays;
+  if(isManager){
+    if(emp.uid === weekendOffMgrUid){
+      workDays = availableDays.filter(d=>d!==0 && d!==6); // off Sun+Sat, works the 5 weekdays
+    } else {
+      const others = flexManagers.filter(m=>m.uid!==weekendOffMgrUid);
+      const idx = Math.max(0, others.findIndex(m=>m.uid===emp.uid));
+      const weekdayOffPairs = [[1,2],[3,4],[1,3],[2,4],[1,4],[2,3]];
+      const offPair = weekdayOffPairs[idx % weekdayOffPairs.length];
+      workDays = availableDays.filter(d=>!offPair.includes(d));
+    }
+  } else {
+    workDays = availableDays.filter(d=>d!==0 && d!==1); // off Sun+Mon by default
+  }
+  return workDays.length > 5 ? workDays.slice(0,5) : workDays;
+}
+
+// Whole-week generation, budget-aware, with two hard scheduling rules layered on top of availability/
+// store hours/time-off:
+//  1. Required roles (Target/Max = 40 — Store Manager, Dept Managers, FT Sales Advisor, Visuals) work
+//     fixed 8-hour shifts (clipped down only if a day's real window is shorter than 8h, e.g. Sunday).
+//     Anyone already naturally restricted to <=5 available days (like a fixed weekly day off) just works
+//     all of those days at 8h each; anyone fully available gets 2 days off chosen by
+//     pickFlexRequiredWorkDays (managers rotate the weekend, others default to Sun+Mon off).
+//  2. Nobody on the whole staff works more than 5 days a week (2+ days off). Non-required employees keep
+//     their existing flexible/waterfilled shift lengths, just restricted to at most their 5
+//     longest-window active days instead of every day they're available.
+// Required roles are filled first (in roster order) out of the week's shared Total Hours Budget; whatever
+// is left goes to everyone else. Manually-edited cells are always left alone, but their hours are
+// subtracted from the shared budget before any auto-fill happens.
+function generateWeek(weekId){
+  const week = getWeek(weekId);
+  if(typeof week.budgetHours !== "number" || week.budgetHours <= 0) return; // caller must validate first
+  const weekIndex = Math.max(0, state.weeks.findIndex(w=>w.id===weekId));
+
+  const toByEmp = {};
+  state.timeOff.filter(t=>t.weekId===weekId).forEach(t=>{
+    if(!toByEmp[t.empUid]) toByEmp[t.empUid] = new Set();
+    t.days.forEach(d=>toByEmp[t.empUid].add(d));
+  });
+
+  // Pass 0: clear stale non-manual cells and tally what manual edits already cost against the budget.
+  let manualTotal = 0;
+  const manualUsedByEmp = {};
+  state.employees.forEach(emp=>{
+    const manualArr = week.manual[emp.uid];
+    const schedArr = week.schedule[emp.uid];
+    let used = 0;
+    [0,1,2,3,4,5,6].forEach(d=>{
+      if(manualArr[d] && schedArr[d]) used += (schedArr[d].end - schedArr[d].start);
+      else if(!manualArr[d]) schedArr[d] = null;
+    });
+    manualUsedByEmp[emp.uid] = used;
+    manualTotal += used;
+  });
+
+  let budgetRemaining = Math.max(0, week.budgetHours - manualTotal);
+
+  const requiredEmps = state.employees.filter(e=>e.cap>=40);
+  const otherEmps = state.employees.filter(e=>e.cap<40);
+
+  const windowsByEmp = {};
+  state.employees.forEach(emp=>{
+    const timeOffSet = toByEmp[emp.uid] || new Set();
+    windowsByEmp[emp.uid] = [0,1,2,3,4,5,6].map(d=>computeDayWindow(emp,d,timeOffSet));
+  });
+
+  // Figure out which required employees actually need the flex-days-off treatment (fully/near-fully
+  // available), and which manager, if any, is up for the full weekend off this week.
+  const flexManagers = requiredEmps.filter(emp=>{
+    const manualArr = week.manual[emp.uid];
+    const avail = [0,1,2,3,4,5,6].filter(d=>windowsByEmp[emp.uid][d]!==null && !manualArr[d]);
+    return avail.length > 5 && /MGR/i.test(emp.title);
+  });
+  const weekendOffMgrUid = flexManagers.length ? flexManagers[weekIndex % flexManagers.length].uid : null;
+
+  requiredEmps.forEach(emp=>{
+    const windows = windowsByEmp[emp.uid];
+    const manualArr = week.manual[emp.uid];
+    const schedArr = week.schedule[emp.uid];
+    const availableDays = [0,1,2,3,4,5,6].filter(d=>windows[d]!==null && !manualArr[d]);
+
+    let workDays;
+    if(availableDays.length <= 5){
+      workDays = availableDays; // already naturally restricted (their own set days off) — use them all
+    } else {
+      workDays = pickFlexRequiredWorkDays(emp, availableDays, /MGR/i.test(emp.title), flexManagers, weekendOffMgrUid);
+    }
+
+    [0,1,2,3,4,5,6].forEach(d=>{
+      if(manualArr[d]) return; // manual cells are never touched
+      if(!workDays.includes(d)){ schedArr[d] = null; return; }
+      const {start,end} = windows[d];
+      const maxFeas = Math.min(end-start, 8.0); // fixed 8h shift, clipped if the day's window is shorter
+      const take = Math.min(maxFeas, budgetRemaining);
+      if(take>0){
+        schedArr[d] = {start:start, end:start+take};
+        budgetRemaining -= take;
+      } else {
+        schedArr[d] = null;
+      }
+    });
+  });
+
+  otherEmps.forEach(emp=>{
+    const windows = windowsByEmp[emp.uid];
+    const manualArr = week.manual[emp.uid];
+    let availableDays = [0,1,2,3,4,5,6].filter(d=>windows[d]!==null && !manualArr[d]);
+    if(availableDays.length > 5){
+      // nobody on staff works more than 5 days — keep the 5 longest-window days, drop the rest
+      availableDays = availableDays
+        .map(d=>({d, dur: windows[d].end - windows[d].start}))
+        .sort((a,b)=>b.dur-a.dur)
+        .slice(0,5)
+        .map(x=>x.d);
+    }
+    const restrictedWindows = [0,1,2,3,4,5,6].map(d=>availableDays.includes(d) ? windows[d] : null);
+    const personalRemaining = Math.max(0, emp.cap - manualUsedByEmp[emp.uid]);
+    const capForThisPass = Math.min(personalRemaining, budgetRemaining);
+    const used = assignEmployeeWaterfill(emp, week, restrictedWindows, manualArr, capForThisPass);
+    budgetRemaining = Math.max(0, budgetRemaining - used);
+  });
+
+  markDirty();
+}
+
+function weekTotalScheduledHours(week){
+  let total = 0;
+  state.employees.forEach(e=>{ total += weeklyHours(week, e.uid); });
+  return total;
+}
+
+function resetWeek(weekId){
+  const week = getWeek(weekId);
+  state.employees.forEach(e=>{
+    week.schedule[e.uid] = [null,null,null,null,null,null,null];
+    week.manual[e.uid] = [false,false,false,false,false,false,false];
+  });
+  markDirty();
+}
+
+function weeklyHours(week, empUid){
+  return week.schedule[empUid].reduce((sum,s)=> sum + (s ? (s.end-s.start) : 0), 0);
+}
+
+/* ===================== RENDER: TABS ===================== */
+document.querySelectorAll("nav button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll("main section").forEach(s=>s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* ===================== RENDER: ROSTER ===================== */
+function renderRoster(){
+  const tbl = document.getElementById("rosterTable");
+  let html = "<tr><th class='leftalign'>Name</th><th class='leftalign'>Job Title</th><th>Type</th><th>Min Hrs</th><th>Target/Max</th><th>Availability Summary</th><th>Actions</th></tr>";
+  state.employees.forEach(e=>{
+    const summary = e.availability.map((a,i)=>{
+      if(a.mode==="off") return null;
+      if(a.mode==="full") return DAY_NAMES[i];
+      return DAY_NAMES[i]+" "+a.windows.map(w=>w.start+"-"+w.end).join("/");
+    }).filter(Boolean).join(", ");
+    html += `<tr>
+      <td class="leftalign"><b>${esc(e.name)}</b></td>
+      <td class="leftalign">${esc(e.title)}</td>
+      <td>${e.type}</td>
+      <td>${e.minHrs}</td>
+      <td>${e.cap}</td>
+      <td class="leftalign small">${esc(summary)||"<i>none set</i>"}</td>
+      <td class="rowbtns"><button class="btn-light btn-sm" data-edit="${e.uid}">Edit</button><button class="btn-danger btn-sm" data-del="${e.uid}">Delete</button></td>
+    </tr>`;
+  });
+  tbl.innerHTML = html;
+  tbl.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click", ()=>openEmpModal(b.dataset.edit)));
+  tbl.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", ()=>{
+    const e = getEmp(b.dataset.del);
+    if(confirm(`Remove ${e.name} from the roster? Their scheduled shifts in existing weeks will also be cleared.`)){
+      state.employees = state.employees.filter(x=>x.uid!==e.uid);
+      state.weeks.forEach(w=>{ delete w.schedule[e.uid]; delete w.manual[e.uid]; });
+      state.timeOff = state.timeOff.filter(t=>t.empUid!==e.uid);
+      markDirty(); renderAll();
+    }
+  }));
+}
+function esc(s){ return (s||"").replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---- employee modal ---- */
+let editingEmpUid = null;
+function openEmpModal(uid){
+  editingEmpUid = uid;
+  const e = uid ? getEmp(uid) : {name:"",title:"",type:"PT",cap:29.5,minHrs:15,id:"",availability:[{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]}]};
+  document.getElementById("empModalTitle").textContent = uid ? "Edit Employee" : "Add Employee";
+  document.getElementById("empName").value = e.name;
+  document.getElementById("empTitle").value = e.title;
+  document.getElementById("empType").value = e.type;
+  document.getElementById("empCap").value = e.cap;
+  document.getElementById("empMin").value = e.minHrs;
+  document.getElementById("empId").value = e.id;
+  renderAvailEditor(e.availability);
+  document.getElementById("empModalBackdrop").classList.add("show");
+}
+function renderAvailEditor(avail){
+  const wrap = document.getElementById("availEditor");
+  wrap.innerHTML = "";
+  DAY_NAMES_FULL.forEach((dname,i)=>{
+    const a = avail[i];
+    const box = document.createElement("div");
+    box.className = "daybox";
+    box.dataset.day = i;
+    box.innerHTML = `<div class="dtitle"><span>${dname}</span>
+      <div class="modebtns">
+        <button type="button" class="modebtn" data-mode="off">Off</button>
+        <button type="button" class="modebtn" data-mode="full">Fully Available</button>
+        <button type="button" class="modebtn" data-mode="custom">Specific Hours</button>
+      </div></div>
+      <div class="winsWrap"></div>
+      <button type="button" class="btn-light btn-sm addWinBtn" style="display:none; margin-top:4px;">+ Add another window</button>`;
+    wrap.appendChild(box);
+    setMode(box, a.mode, a.windows);
+    box.querySelectorAll(".modebtn").forEach(mb=>{
+      mb.addEventListener("click", ()=>{
+        const mode = mb.dataset.mode;
+        setMode(box, mode, mode==="custom" ? [{start:"09:00",end:"17:00"}] : []);
+      });
+    });
+    box.querySelector(".addWinBtn").addEventListener("click", ()=>{
+      addWinRow(box, {start:"09:00", end:"17:00"});
+    });
+  });
+}
+function setMode(box, mode, windows){
+  box.dataset.mode = mode;
+  box.querySelectorAll(".modebtn").forEach(mb=>mb.classList.toggle("on", mb.dataset.mode===mode));
+  const winsWrap = box.querySelector(".winsWrap");
+  winsWrap.innerHTML = "";
+  box.querySelector(".addWinBtn").style.display = mode==="custom" ? "inline-block":"none";
+  if(mode==="custom"){
+    (windows.length?windows:[{start:"09:00",end:"17:00"}]).forEach(w=>addWinRow(box,w));
+  }
+}
+function addWinRow(box, w){
+  const winsWrap = box.querySelector(".winsWrap");
+  const row = document.createElement("div");
+  row.className = "winrow";
+  row.innerHTML = `<input type="time" class="winStart" value="${w.start&&w.start.length===5?w.start:'09:00'}">
+    <span class="small">to</span>
+    <input type="time" class="winEnd" value="${w.end&&w.end.length===5?w.end:'17:00'}">
+    <button type="button" class="btn-danger btn-sm rmWin">✕</button>`;
+  row.querySelector(".rmWin").addEventListener("click", ()=> row.remove());
+  winsWrap.appendChild(row);
+}
+function collectAvailFromEditor(){
+  const boxes = document.querySelectorAll("#availEditor .daybox");
+  const result = [];
+  boxes.forEach(box=>{
+    const mode = box.dataset.mode;
+    if(mode==="custom"){
+      const windows = [...box.querySelectorAll(".winrow")].map(r=>({
+        start: r.querySelector(".winStart").value || "09:00",
+        end: r.querySelector(".winEnd").value || "17:00"
+      }));
+      result.push({mode:"custom", windows});
+    } else {
+      result.push({mode, windows:[]});
+    }
+  });
+  return result;
+}
+document.getElementById("btnAddEmp").addEventListener("click", ()=>openEmpModal(null));
+document.getElementById("empCancelBtn").addEventListener("click", ()=>document.getElementById("empModalBackdrop").classList.remove("show"));
+document.getElementById("empSaveBtn").addEventListener("click", ()=>{
+  const name = document.getElementById("empName").value.trim();
+  if(!name){ alert("Please enter a name."); return; }
+  const data = {
+    name,
+    title: document.getElementById("empTitle").value.trim() || "PT SALES ADVISOR",
+    type: document.getElementById("empType").value,
+    cap: parseFloat(document.getElementById("empCap").value)||0,
+    minHrs: parseFloat(document.getElementById("empMin").value)||0,
+    id: document.getElementById("empId").value.trim(),
+    availability: collectAvailFromEditor()
+  };
+  if(editingEmpUid){
+    const e = getEmp(editingEmpUid);
+    Object.assign(e, data);
+  } else {
+    const uid = "e"+(state.nextUid++);
+    state.employees.push({uid, ...data});
+    ensureEmployeeInAllWeeks();
+  }
+  markDirty();
+  document.getElementById("empModalBackdrop").classList.remove("show");
+  renderAll();
+});
+
+/* ===================== RENDER: STORE HOURS ===================== */
+function renderStoreHours(){
+  const tbl = document.getElementById("storeHoursTable");
+  let html = "<tr><th class='leftalign'>Day</th><th>Open</th><th>Close</th></tr>";
+  DAY_NAMES_FULL.forEach((d,i)=>{
+    const sh = state.storeHours[i];
+    html += `<tr><td class="leftalign"><b>${d}</b></td>
+      <td><input type="time" data-day="${i}" data-field="open" value="${sh.open}" style="width:110px;margin:0 auto;"></td>
+      <td><input type="time" data-day="${i}" data-field="close" value="${sh.close}" style="width:110px;margin:0 auto;"></td></tr>`;
+  });
+  tbl.innerHTML = html;
+  tbl.querySelectorAll("input").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      state.storeHours[inp.dataset.day][inp.dataset.field] = inp.value;
+      markDirty();
+      renderSchedule();
+    });
+  });
+}
+
+/* ===================== RENDER: TIME OFF ===================== */
+function renderTimeOff(){
+  const tbl = document.getElementById("timeOffTable");
+  let html = "<tr><th class='leftalign'>Employee</th><th>Week</th><th>Day(s)</th><th class='leftalign'>Note</th><th>Actions</th></tr>";
+  state.timeOff.forEach(t=>{
+    const emp = getEmp(t.empUid);
+    const wk = getWeek(t.weekId);
+    html += `<tr>
+      <td class="leftalign">${emp?esc(emp.name):"<i>removed</i>"}</td>
+      <td>${wk?esc(wk.label):"<i>removed</i>"}</td>
+      <td>${t.days.map(d=>DAY_NAMES[d]).join(", ")}</td>
+      <td class="leftalign small">${esc(t.note||"")}</td>
+      <td><button class="btn-danger btn-sm" data-del="${t.id}">Delete</button></td>
+    </tr>`;
+  });
+  if(!state.timeOff.length) html += `<tr><td colspan="5" class="small">No time-off requests logged.</td></tr>`;
+  tbl.innerHTML = html;
+  tbl.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", ()=>{
+    state.timeOff = state.timeOff.filter(t=>String(t.id)!==b.dataset.del);
+    markDirty(); renderAll();
+  }));
+}
+document.getElementById("btnAddTimeOff").addEventListener("click", ()=>{
+  const empSel = document.getElementById("toEmp");
+  const weekSel = document.getElementById("toWeek");
+  empSel.innerHTML = state.employees.map(e=>`<option value="${e.uid}">${esc(e.name)}</option>`).join("");
+  weekSel.innerHTML = state.weeks.map(w=>`<option value="${w.id}">${esc(w.label)}</option>`).join("");
+  weekSel.value = state.activeWeekId;
+  const daysWrap = document.getElementById("toDays");
+  daysWrap.innerHTML = DAY_NAMES.map((d,i)=>`<label><input type="checkbox" value="${i}">${d}</label>`).join("");
+  document.getElementById("toNote").value = "";
+  document.getElementById("toModalBackdrop").classList.add("show");
+});
+document.getElementById("toCancelBtn").addEventListener("click", ()=>document.getElementById("toModalBackdrop").classList.remove("show"));
+document.getElementById("toSaveBtn").addEventListener("click", ()=>{
+  const days = [...document.querySelectorAll("#toDays input:checked")].map(c=>parseInt(c.value));
+  if(!days.length){ alert("Pick at least one day."); return; }
+  state.timeOff.push({
+    id: state.nextToId++,
+    empUid: document.getElementById("toEmp").value,
+    weekId: document.getElementById("toWeek").value,
+    days,
+    note: document.getElementById("toNote").value.trim()
+  });
+  markDirty();
+  document.getElementById("toModalBackdrop").classList.remove("show");
+  renderAll();
+});
+
+/* ===================== RENDER: SCHEDULE ===================== */
+function renderWeekSelector(){
+  const sel = document.getElementById("weekSelect");
+  sel.innerHTML = state.weeks.map(w=>`<option value="${w.id}">${esc(w.label)}</option>`).join("");
+  sel.value = state.activeWeekId;
+  document.getElementById("weekStartInput").value = activeWeek().startDate;
+  const budgetInput = document.getElementById("weekBudgetInput");
+  const week = activeWeek();
+  budgetInput.value = (typeof week.budgetHours==="number") ? week.budgetHours : "";
+  budgetInput.style.borderColor = (typeof week.budgetHours==="number" && week.budgetHours>0) ? "" : "var(--red)";
+}
+document.getElementById("weekSelect").addEventListener("change", (e)=>{
+  state.activeWeekId = e.target.value;
+  renderSchedule();
+  document.getElementById("weekStartInput").value = activeWeek().startDate;
+});
+document.getElementById("weekStartInput").addEventListener("change", (e)=>{
+  let v = e.target.value;
+  const snapped = nearestSundayOnOrBefore(v);
+  if(snapped!==v){ showToast("Adjusted to the nearest Sunday — weeks start on Sunday."); v = snapped; }
+  activeWeek().startDate = v;
+  e.target.value = v;
+  markDirty();
+  renderSchedule();
+});
+document.getElementById("weekBudgetInput").addEventListener("change", (e)=>{
+  const v = parseFloat(e.target.value);
+  activeWeek().budgetHours = (isFinite(v) && v>0) ? v : null;
+  markDirty();
+  renderSchedule();
+});
+document.getElementById("btnAddWeek").addEventListener("click", ()=>{
+  const n = state.nextWeekNum++;
+  const prevStart = activeWeek().startDate;
+  const newStart = addDaysISO(prevStart, 7);
+  const w = makeEmptyWeek("w"+Date.now()+"_"+n, "Week "+n, newStart, state.employees, null);
+  state.weeks.push(w);
+  state.activeWeekId = w.id;
+  markDirty(); renderAll();
+  showToast("New week added — set a Total Hours Budget before generating it.");
+});
+document.getElementById("btnDupWeek").addEventListener("click", ()=>{
+  const src = activeWeek();
+  const n = state.nextWeekNum++;
+  const newStart = addDaysISO(src.startDate, 7);
+  const w = makeEmptyWeek("w"+Date.now()+"_"+n, "Week "+n, newStart, state.employees, src.budgetHours);
+  state.employees.forEach(e=>{
+    w.schedule[e.uid] = src.schedule[e.uid].map(s=>s?{...s}:null);
+    w.manual[e.uid] = src.manual[e.uid].map(()=>true);
+  });
+  state.weeks.push(w);
+  state.activeWeekId = w.id;
+  markDirty(); renderAll();
+  showToast("Duplicated as "+w.label+" — shifts carried over as manual, shifted +7 days.");
+});
+document.getElementById("btnDelWeek").addEventListener("click", ()=>{
+  if(state.weeks.length===1){ alert("You need at least one week."); return; }
+  if(!confirm("Delete "+activeWeek().label+"? This can't be undone.")) return;
+  state.weeks = state.weeks.filter(w=>w.id!==state.activeWeekId);
+  state.timeOff = state.timeOff.filter(t=>t.weekId!==state.activeWeekId);
+  state.activeWeekId = state.weeks[0].id;
+  markDirty(); renderAll();
+});
+document.getElementById("btnGenerate").addEventListener("click", ()=>{
+  const week = activeWeek();
+  if(typeof week.budgetHours !== "number" || week.budgetHours <= 0){
+    alert("Enter a Total Hours Budget for "+week.label+" before generating — it's required for every week.");
+    document.getElementById("weekBudgetInput").focus();
+    return;
+  }
+  generateWeek(state.activeWeekId);
+  renderSchedule();
+  showToast("Week generated.");
+});
+document.getElementById("btnResetWeek").addEventListener("click", ()=>{
+  if(!confirm("Clear every shift in "+activeWeek().label+"? This removes manual edits too.")) return;
+  resetWeek(state.activeWeekId);
+  renderSchedule();
+});
+
+function renderSchedule(){
+  renderWeekSelector();
+  const week = activeWeek();
+  const toByEmp = {};
+  state.timeOff.filter(t=>t.weekId===week.id).forEach(t=>{
+    if(!toByEmp[t.empUid]) toByEmp[t.empUid] = new Set();
+    t.days.forEach(d=>toByEmp[t.empUid].add(d));
+  });
+
+  const banner = document.getElementById("budgetTotalBanner");
+  const genBtn = document.getElementById("btnGenerate");
+  const totalHrs = weekTotalScheduledHours(week);
+  const totalDisp = totalHrs%1===0 ? totalHrs : totalHrs.toFixed(1);
+  if(typeof week.budgetHours==="number" && week.budgetHours>0){
+    const over = totalHrs > week.budgetHours + 1e-9;
+    banner.textContent = "Total Scheduled: "+totalDisp+" / "+week.budgetHours+" hrs"+(over?" ⚠ Over budget":"");
+    banner.style.background = over ? "var(--red-lt)" : "var(--blue-lt)";
+    banner.style.color = over ? "#991b1b" : "#1e40af";
+    genBtn.disabled = false;
+    genBtn.title = "";
+  } else {
+    banner.textContent = "Total Scheduled: "+totalDisp+" hrs — set a Total Hours Budget above to enable Generate";
+    banner.style.background = "var(--amber-lt)";
+    banner.style.color = "#92400e";
+    genBtn.disabled = true;
+    genBtn.title = "Enter a Total Hours Budget for this week first.";
+  }
+
+  const tbl = document.getElementById("scheduleTable");
+  let html = "<tr><th class='leftalign'>Name</th><th class='leftalign'>Job Title</th>";
+  DAY_NAMES.forEach((d,i)=>{ html += `<th>${d} ${fmtDate(addDaysISO(week.startDate,i))}</th>`; });
+  html += "<th>Hrs</th><th>Min</th><th>Target</th><th>Status</th></tr>";
+
+  state.employees.forEach(e=>{
+    const sched = week.schedule[e.uid] || [null,null,null,null,null,null,null];
+    const manual = week.manual[e.uid] || [false,false,false,false,false,false,false];
+    const hrs = weeklyHours(week, e.uid);
+    let status = "";
+    if(hrs>0){
+      if(hrs < e.minHrs) status = `<span class="pill pill-under">Under</span>`;
+      else if(hrs > e.cap + 1e-9) status = `<span class="pill pill-over">Over</span>`;
+      else status = `<span class="pill pill-ok">OK</span>`;
+    }
+    html += `<tr><td class="leftalign"><b>${esc(e.name)}</b></td><td class="leftalign">${esc(e.title)}</td>`;
+    const toSet = toByEmp[e.uid] || new Set();
+    DAY_NAMES.forEach((d,i)=>{
+      const s = sched[i];
+      const isManual = manual[i];
+      const isConflict = toSet.has(i) && s;
+      const cls = ["daycell"];
+      if(!s) cls.push("off");
+      if(isManual) cls.push("manual");
+      if(isConflict) cls.push("conflict");
+      const label = s ? (floatTo12h(s.start)+"–"+floatTo12h(s.end)) : "OFF";
+      html += `<td class="${cls.join(' ')}" data-emp="${e.uid}" data-day="${i}">${isConflict?'<span class="warn">⚠</span>':''}${label}</td>`;
+    });
+    html += `<td><b>${hrs%1===0?hrs:hrs.toFixed(1)}</b></td><td>${e.minHrs}</td><td>${e.cap}</td><td>${status}</td>`;
+    html += "</tr>";
+  });
+  tbl.innerHTML = html;
+  tbl.querySelectorAll(".daycell").forEach(td=>{
+    td.addEventListener("click", ()=>openShiftModal(td.dataset.emp, parseInt(td.dataset.day)));
+  });
+
+  renderCoverage(week);
+
+  const budgetSuffix = (typeof week.budgetHours==="number") ? (" — Budget: "+totalDisp+" / "+week.budgetHours+" hrs") : "";
+  document.getElementById("printWeekLabel").textContent =
+    week.label+" — "+DAY_NAMES.map((d,i)=>d+" "+fmtDate(addDaysISO(week.startDate,i))).join(" · ")+budgetSuffix;
+}
+
+function renderCoverage(week){
+  const tbl = document.getElementById("coverageTable");
+  let staffRow = "<tr><th class='leftalign'>Staff Scheduled</th>";
+  let hrsRow = "<tr><th class='leftalign'>Total Scheduled Hours</th>";
+  let mgrRow = "<tr><th class='leftalign'>Manager On Duty</th>";
+  DAY_NAMES.forEach((d,i)=>{
+    let count=0, hrs=0, mgr=false;
+    state.employees.forEach(e=>{
+      const s = week.schedule[e.uid][i];
+      if(s){ count++; hrs += (s.end-s.start); if(/MGR/i.test(e.title)) mgr=true; }
+    });
+    staffRow += `<td>${count}</td>`;
+    hrsRow += `<td>${hrs%1===0?hrs:hrs.toFixed(1)}</td>`;
+    mgrRow += `<td>${mgr?"Yes":"<span style='color:#dc2626;font-weight:700;'>No</span>"}</td>`;
+  });
+  const headRow = "<tr><th class='leftalign'></th>"+DAY_NAMES.map(d=>`<th>${d}</th>`).join("")+"</tr>";
+  tbl.innerHTML = headRow+staffRow+"</tr>"+hrsRow+"</tr>"+mgrRow+"</tr>";
+}
+
+/* ---- shift modal ---- */
+let editingShift = null;
+function openShiftModal(empUid, day){
+  editingShift = {empUid, day};
+  const week = activeWeek();
+  const s = week.schedule[empUid][day];
+  const emp = getEmp(empUid);
+  document.getElementById("shiftModalTitle").textContent = emp.name+" — "+DAY_NAMES_FULL[day];
+  document.getElementById("shiftStart").value = s ? floatToHHMM(s.start) : "09:00";
+  document.getElementById("shiftEnd").value = s ? floatToHHMM(s.end) : "17:00";
+  const store = state.storeHours[day];
+  document.getElementById("shiftAvailNote").textContent = `Store hours ${store.open}–${store.close}. Availability doesn't block manual edits.`;
+  document.getElementById("shiftModalBackdrop").classList.add("show");
+}
+document.getElementById("shiftCancelBtn").addEventListener("click", ()=>document.getElementById("shiftModalBackdrop").classList.remove("show"));
+document.getElementById("shiftOffBtn").addEventListener("click", ()=>{
+  const {empUid, day} = editingShift;
+  const week = activeWeek();
+  week.schedule[empUid][day] = null;
+  week.manual[empUid][day] = true;
+  markDirty();
+  document.getElementById("shiftModalBackdrop").classList.remove("show");
+  renderSchedule();
+});
+document.getElementById("shiftClearBtn").addEventListener("click", ()=>{
+  const {empUid, day} = editingShift;
+  const week = activeWeek();
+  week.schedule[empUid][day] = null;
+  week.manual[empUid][day] = false;
+  markDirty();
+  document.getElementById("shiftModalBackdrop").classList.remove("show");
+  renderSchedule();
+});
+document.getElementById("shiftSaveBtn").addEventListener("click", ()=>{
+  const {empUid, day} = editingShift;
+  const startV = document.getElementById("shiftStart").value;
+  const endV = document.getElementById("shiftEnd").value;
+  if(!startV || !endV){ alert("Enter both a start and end time."); return; }
+  let s = hhmmToFloat(startV), e = hhmmToFloat(endV);
+  if(e<=s){ e += 24; }
+  if(e-s > 16){ alert("That shift is longer than 16 hours — double check the times."); return; }
+  const week = activeWeek();
+  week.schedule[empUid][day] = {start:s, end:e};
+  week.manual[empUid][day] = true;
+  markDirty();
+  document.getElementById("shiftModalBackdrop").classList.remove("show");
+  renderSchedule();
+});
+
+/* ===================== EXPORT: CSV ===================== */
+function csvEscape(v){
+  v = String(v);
+  if(/[",\n]/.test(v)) return '"'+v.replace(/"/g,'""')+'"';
+  return v;
+}
+document.getElementById("btnExportCsv").addEventListener("click", ()=>{
+  const week = activeWeek();
+  const totalHrs = weekTotalScheduledHours(week);
+  const summaryRow = ["Total Hours Budget", (typeof week.budgetHours==="number"?week.budgetHours:""),
+    "Total Scheduled", totalHrs%1===0?totalHrs:totalHrs.toFixed(1)];
+  const header = ["Name","Job Title","Type",
+    ...DAY_NAMES.map((d,i)=>d+" "+fmtDate(addDaysISO(week.startDate,i))),
+    "Weekly Hours","Min Hrs","Target Hrs","Status"];
+  const rows = [summaryRow, [], header];
+  state.employees.forEach(e=>{
+    const hrs = weeklyHours(week, e.uid);
+    let status = hrs===0?"":(hrs<e.minHrs?"Under":(hrs>e.cap+1e-9?"Over":"OK"));
+    const row = [e.name, e.title, e.type];
+    week.schedule[e.uid].forEach(s=>{
+      row.push(s? (floatToHHMM(s.start)+" - "+floatToHHMM(s.end)) : "OFF");
+    });
+    row.push(hrs%1===0?hrs:hrs.toFixed(1), e.minHrs, e.cap, status);
+    rows.push(row);
+  });
+  const csv = rows.map(r=>r.map(csvEscape).join(",")).join("\r\n");
+  downloadBlob(csv, `Store758_${week.label.replace(/\s+/g,"_")}_${week.startDate}.csv`, "text/csv");
+  showToast("CSV exported.");
+});
+
+/* ===================== SAVE / LOAD ===================== */
+function downloadBlob(content, filename, mime){
+  const blob = new Blob([content], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+document.getElementById("btnSave").addEventListener("click", ()=>{
+  const json = JSON.stringify(state, null, 2);
+  const today = new Date().toISOString().slice(0,10);
+  downloadBlob(json, `Store758_ScheduleData_${today}.json`, "application/json");
+  markClean();
+  showToast("Data saved to a file on your computer.");
+});
+document.getElementById("btnLoad").addEventListener("click", ()=>document.getElementById("fileLoadInput").click());
+document.getElementById("fileLoadInput").addEventListener("change", (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const loaded = JSON.parse(reader.result);
+      if(!loaded.employees || !loaded.weeks || !loaded.storeHours) throw new Error("bad format");
+      state = loaded;
+      ensureEmployeeInAllWeeks();
+      if(!state.activeWeekId || !getWeek(state.activeWeekId)) state.activeWeekId = state.weeks[0].id;
+      markClean();
+      renderAll();
+      showToast("Data loaded from file.");
+    }catch(err){
+      alert("That file doesn't look like a valid schedule data file.");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+/* ===================== PRINT ===================== */
+document.getElementById("btnPrint").addEventListener("click", ()=>{
+  document.getElementById("printHeader").style.display = "block";
+  window.print();
+  setTimeout(()=>{ document.getElementById("printHeader").style.display = "none"; }, 300);
+});
+
+/* ===================== TOAST ===================== */
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove("show"), 2600);
+}
+
+/* ===================== INIT ===================== */
+function renderAll(){
+  renderRoster();
+  renderStoreHours();
+  renderTimeOff();
+  renderSchedule();
+}
+renderAll();
+</script>
+</body>
+</html>
