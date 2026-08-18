@@ -134,10 +134,11 @@
       <h3>Quick start</h3>
       <ol>
         <li><b>Staff Roster</b> — add, edit, or remove employees. Each person has a job title, a weekly target/max, a minimum hours floor, and a day-by-day availability pattern.</li>
-        <li><b>Store Hours</b> — the store's open/close time for each day of the week. Shifts are never generated outside these hours.</li>
+        <li><b>Store Hours</b> — the store's open/close time for each day of the week. Shifts are never generated outside these hours. Click <b>Apply Store Hours</b> to confirm any changes.</li>
         <li><b>Time-Off Requests</b> — log a request for a specific employee and week; those days are automatically skipped when you generate that week's schedule.</li>
-        <li><b>Schedule</b> — pick or add a week, enter a <b>Total Hours Budget</b> for that week (required — Generate is disabled until it's set), then click <b>Generate Week</b> to auto-draft shifts. Click any day cell to fine-tune it by hand afterward. Manually edited cells are marked with a small ✎ and are never overwritten by Generate.</li>
+        <li><b>Schedule</b> — pick or add a week, set its start date (click <b>Apply Date</b> to confirm), enter a <b>Total Hours Budget</b> for that week (click <b>Apply Budget</b> to confirm — required before Generate will run), then click <b>Generate Week</b> to auto-draft shifts. Click any day cell to fine-tune it by hand afterward. Manually edited cells are marked with a small ✎ and are never overwritten by Generate.</li>
       </ol>
+      <p class="hint">Every change anywhere in this app needs a button click to confirm it (Apply Changes, Apply Store Hours, Apply Date, Apply Budget, or a shift's Save button) — nothing applies just from typing or clicking away. Once confirmed, it's saved automatically to this browser; no separate save step.</p>
       <h3>Total Hours Budget</h3>
       <p>Each week has its own <b>Total Hours Budget</b> — the combined hours for the entire staff that week (e.g. 130). Generate always respects: each employee's own availability, store hours, time-off requests, and their individual Min/Max Hrs — the weekly budget is an <i>additional</i> ceiling on top of all of that, not a replacement for it.</p>
       <p>When the budget isn't enough to cover everyone at their normal individual target, <b>required roles are filled first</b> — anyone whose Target/Max Hrs is 40 (the Store Manager, Dept Managers, FT Sales Advisor, and Visuals) gets scheduled toward their own normal target before anyone else, in roster order. Whatever's left of the budget is then spread across everyone else, also in roster order. If the budget runs out, people further down the list may get zero hours that week — that's expected, not a bug.</p>
@@ -178,6 +179,7 @@
     <p class="hint">Used to clip every shift and every "Fully Available" day so nothing gets scheduled outside operating hours.</p>
     <div class="card" style="max-width:520px;">
       <table id="storeHoursTable"></table>
+      <button class="btn-primary btn-sm" id="btnApplyStoreHours" style="margin-top:14px;">Apply Store Hours</button>
     </div>
   </section>
 
@@ -200,6 +202,7 @@
         <select id="weekSelect"></select>
         <label class="small" style="margin:0;">Week starts (Sun)</label>
         <input type="date" id="weekStartInput" style="width:150px;">
+        <button class="btn-light btn-sm" id="btnApplyWeekStart">Apply Date</button>
         <button class="btn-light btn-sm" id="btnAddWeek">+ Add Week</button>
         <button class="btn-light btn-sm" id="btnDupWeek">⧉ Duplicate</button>
         <button class="btn-danger btn-sm" id="btnDelWeek">Delete Week</button>
@@ -208,7 +211,10 @@
     <div class="card no-print" style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
       <div>
         <label for="weekBudgetInput">Total Hours Budget (whole staff, this week) <span style="color:var(--red);">*required</span></label>
-        <input type="number" id="weekBudgetInput" min="0" step="0.5" placeholder="e.g. 130" style="width:140px;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="number" id="weekBudgetInput" min="0" step="0.5" placeholder="e.g. 130" style="width:140px;">
+          <button class="btn-primary btn-sm" id="btnApplyBudget">Apply Budget</button>
+        </div>
       </div>
       <div id="budgetTotalBanner" class="badge" style="font-size:12.5px; padding:6px 12px;"></div>
     </div>
@@ -848,14 +854,15 @@ function renderStoreHours(){
       <td><input type="time" data-day="${i}" data-field="close" value="${sh.close}" style="width:110px;margin:0 auto;"></td></tr>`;
   });
   tbl.innerHTML = html;
-  tbl.querySelectorAll("input").forEach(inp=>{
-    inp.addEventListener("change", ()=>{
-      state.storeHours[inp.dataset.day][inp.dataset.field] = inp.value;
-      markDirty();
-      renderSchedule();
-    });
-  });
 }
+document.getElementById("btnApplyStoreHours").addEventListener("click", ()=>{
+  document.querySelectorAll("#storeHoursTable input").forEach(inp=>{
+    state.storeHours[inp.dataset.day][inp.dataset.field] = inp.value;
+  });
+  markDirty();
+  renderSchedule();
+  showToast("Store hours applied.");
+});
 
 /* ===================== RENDER: TIME OFF ===================== */
 function renderTimeOff(){
@@ -922,20 +929,25 @@ document.getElementById("weekSelect").addEventListener("change", (e)=>{
   renderSchedule();
   document.getElementById("weekStartInput").value = activeWeek().startDate;
 });
-document.getElementById("weekStartInput").addEventListener("change", (e)=>{
-  let v = e.target.value;
+document.getElementById("btnApplyWeekStart").addEventListener("click", ()=>{
+  const input = document.getElementById("weekStartInput");
+  let v = input.value;
+  if(!v){ return; }
   const snapped = nearestSundayOnOrBefore(v);
   if(snapped!==v){ showToast("Adjusted to the nearest Sunday — weeks start on Sunday."); v = snapped; }
   activeWeek().startDate = v;
-  e.target.value = v;
+  input.value = v;
   markDirty();
   renderSchedule();
+  showToast("Week start date applied.");
 });
-document.getElementById("weekBudgetInput").addEventListener("change", (e)=>{
-  const v = parseFloat(e.target.value);
+document.getElementById("btnApplyBudget").addEventListener("click", ()=>{
+  const input = document.getElementById("weekBudgetInput");
+  const v = parseFloat(input.value);
   activeWeek().budgetHours = (isFinite(v) && v>0) ? v : null;
   markDirty();
   renderSchedule();
+  showToast(activeWeek().budgetHours ? "Total Hours Budget applied." : "Budget cleared.");
 });
 document.getElementById("btnAddWeek").addEventListener("click", ()=>{
   const n = state.nextWeekNum++;
