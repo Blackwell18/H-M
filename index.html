@@ -28,7 +28,6 @@
   .btn-danger:hover{background:var(--red-lt);}
   .btn-sm{padding:4px 9px; font-size:12px;}
   button:disabled{opacity:.5; cursor:not-allowed;}
-  #unsavedBanner{background:#fef3c7; color:#78350f; border-bottom:1px solid #f5d98b; padding:9px 20px; font-size:13px; font-weight:600; text-align:center;}
   nav{display:flex; background:#fff; border-bottom:2px solid var(--border); padding:0 20px; gap:2px; flex-wrap:wrap;}
   nav button{background:none; border:none; border-bottom:3px solid transparent; border-radius:0; padding:12px 16px; color:#4b5563; font-weight:700;}
   nav button.active{color:var(--blue); border-bottom-color:var(--blue);}
@@ -110,16 +109,12 @@
   </div>
   <div class="toolbar">
     <span class="small" id="dirtyIndicator" style="color:#cbd5e1;"></span>
-    <button class="btn-ghost" id="btnSave">💾 Save Data</button>
-    <button class="btn-ghost" id="btnLoad">📂 Load Data</button>
+    <button class="btn-ghost" id="btnSave">⬇ Download Backup</button>
+    <button class="btn-ghost" id="btnLoad">📂 Restore Backup</button>
     <input type="file" id="fileLoadInput" accept="application/json">
     <button class="btn-light" id="btnPrint">🖨️ Print / Save PDF</button>
   </div>
 </header>
-<div id="unsavedBanner" class="no-print" style="display:none;">
-  ⚠️ You have changes that only exist in this browser tab right now. Click <b>💾 Save Data</b> to keep them — closing or refreshing this page without saving will lose them.
-  <button class="btn-primary btn-sm" id="btnSaveFromBanner" style="margin-left:10px;">💾 Save Data Now</button>
-</div>
 
 <nav class="no-print">
   <button data-tab="readme" class="active">Read Me</button>
@@ -154,7 +149,8 @@
       </ul>
       <p class="small">Both rules only govern what <b>Generate</b> does automatically. Manual edits can still override them on individual cells if you need an exception — those cells just won't be touched by Generate afterward.</p>
       <h3>Saving your work</h3>
-      <p>This is a browser tool with no server behind it, so nothing saves automatically. Click <b>💾 Save Data</b> any time to download a backup file of everything (roster, hours, time-off, all weeks). Click <b>📂 Load Data</b> next time you open this page to pick that file back up exactly where you left off. Keep that file somewhere safe (e.g. email it to yourself or save it in your store's shared folder) — it <i>is</i> your data.</p>
+      <p>Every change you make (editing an employee, generating a week, adding time-off, etc.) saves itself automatically to this browser on this computer — there's no extra "save" step. Just close the tab whenever you're done; it'll be exactly as you left it next time you open the page here.</p>
+      <p>That automatic save only lives in this one browser on this one device, though — it does not appear on a different computer, phone, or browser. To move your data to another device (or keep an off-device backup just in case), click <b>⬇ Download Backup</b> to get a file with everything (roster, hours, time-off, all weeks), then use <b>📂 Restore Backup</b> on the other device to load that file in.</p>
       <p>Use <b>🖨️ Print / Save PDF</b> on the Schedule tab to print the current week or save it as a PDF for posting or sharing. Use <b>Export CSV</b> (on the Schedule tab) to download the current week as a spreadsheet file you can open in Excel.</p>
       <h3>Notes</h3>
       <ul>
@@ -262,7 +258,7 @@
     </div>
     <h3 style="margin-bottom:6px;">Weekly Availability</h3>
     <div id="availEditor"></div>
-    <p class="small" style="margin:10px 0 0;">This applies the change to your current session. Click <b>💾 Save Data</b> (top of the page) afterward to keep it in a file — otherwise it's lost if you close or refresh the page.</p>
+    <p class="small" style="margin:10px 0 0;">Saved automatically to this browser as soon as you click Apply Changes — no extra step needed. (Use ⬇ Download Backup, top of the page, only if you want a backup file or to move this to another computer.)</p>
     <div class="modal-actions">
       <button class="btn-light" id="empCancelBtn">Cancel</button>
       <button class="btn-primary" id="empSaveBtn">Apply Changes</button>
@@ -432,20 +428,37 @@ function makeEmptyWeek(id,label,startDate,employees,budgetHours){
 }
 
 /* ===================== STATE ===================== */
-let state = buildSeedState();
+const AUTOSAVE_KEY = "store758_scheduler_autosave_v1";
+function autoSaveLocal(){
+  try{ localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(state)); }catch(e){ /* storage unavailable/full - fail silently */ }
+}
+function tryLoadAutoSave(){
+  try{
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(!parsed.employees || !parsed.weeks || !parsed.storeHours) return null;
+    return parsed;
+  }catch(e){ return null; }
+}
+let state = tryLoadAutoSave() || buildSeedState();
+ensureEmployeeInAllWeeks();
+if(!state.activeWeekId || !state.weeks.find(w=>w.id===state.activeWeekId)) state.activeWeekId = state.weeks[0].id;
 let dirty = false;
+let _dirtyIndicatorTimer;
 function markDirty(){
   dirty = true;
-  document.getElementById("dirtyIndicator").innerHTML = '<span class="dirty-dot"></span>Unsaved changes';
-  document.getElementById("unsavedBanner").style.display = "block";
+  autoSaveLocal();
+  const ind = document.getElementById("dirtyIndicator");
+  ind.innerHTML = '<span class="dirty-dot" style="background:#22c55e;"></span>Saved on this device';
+  clearTimeout(_dirtyIndicatorTimer);
+  _dirtyIndicatorTimer = setTimeout(()=>{ ind.innerHTML = ""; }, 2200);
 }
 function markClean(){
   dirty = false;
+  clearTimeout(_dirtyIndicatorTimer);
   document.getElementById("dirtyIndicator").innerHTML = "";
-  document.getElementById("unsavedBanner").style.display = "none";
 }
-window.addEventListener("beforeunload", (e)=>{ if(dirty){ e.preventDefault(); e.returnValue=""; }});
-document.getElementById("btnSaveFromBanner").addEventListener("click", ()=>document.getElementById("btnSave").click());
 
 function ensureEmployeeInAllWeeks(){
   state.weeks.forEach(w=>{
@@ -1156,7 +1169,7 @@ document.getElementById("btnSave").addEventListener("click", ()=>{
   const today = new Date().toISOString().slice(0,10);
   downloadBlob(json, `Store758_ScheduleData_${today}.json`, "application/json");
   markClean();
-  showToast("Data saved to a file on your computer.");
+  showToast("Backup file downloaded.");
 });
 document.getElementById("btnLoad").addEventListener("click", ()=>document.getElementById("fileLoadInput").click());
 document.getElementById("fileLoadInput").addEventListener("change", (e)=>{
@@ -1170,9 +1183,10 @@ document.getElementById("fileLoadInput").addEventListener("change", (e)=>{
       state = loaded;
       ensureEmployeeInAllWeeks();
       if(!state.activeWeekId || !getWeek(state.activeWeekId)) state.activeWeekId = state.weeks[0].id;
+      autoSaveLocal();
       markClean();
       renderAll();
-      showToast("Data loaded from file.");
+      showToast("Backup restored — now saved automatically on this browser too.");
     }catch(err){
       alert("That file doesn't look like a valid schedule data file.");
     }
