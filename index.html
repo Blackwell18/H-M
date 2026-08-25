@@ -1428,14 +1428,18 @@ document.getElementById("btnDupWeek").addEventListener("click", ()=>{
   const n = state.nextWeekNum++;
   const newStart = addDaysISO(src.startDate, 7);
   const w = makeEmptyWeek("w"+Date.now()+"_"+n, "Week "+n, newStart, state.employees, src.budgetHours);
+  // Carried-over shifts start as a non-locked starting point (2026-08-25 change — previously these were
+  // force-marked manual, which silently froze the week forever: Generate Week would never touch them
+  // again, even after later algorithm updates, which was confusing and looked like Generate was broken.
+  // w.manual is already all-false from makeEmptyWeek, so nothing needs setting here — Generate Week will
+  // freely recompute every cell unless/until the user manually edits a specific one.
   state.employees.forEach(e=>{
     w.schedule[e.uid] = src.schedule[e.uid].map(s=>s?{...s}:null);
-    w.manual[e.uid] = src.manual[e.uid].map(()=>true);
   });
   state.weeks.push(w);
   state.activeWeekId = w.id;
   markDirty(); renderAll();
-  showToast("Duplicated as "+w.label+" — shifts carried over as manual, shifted +7 days.");
+  showToast("Duplicated as "+w.label+" — shifts carried over as a starting point (not locked; Generate Week will refresh them), shifted +7 days.");
 });
 document.getElementById("btnDelWeek").addEventListener("click", ()=>{
   if(state.weeks.length===1){ alert("You need at least one week."); return; }
