@@ -108,6 +108,7 @@
     <div class="sub" id="storeSub">District AR12 · Region USNOR</div>
   </div>
   <div class="toolbar">
+    <span class="small" id="cloudStatus" style="color:#9fb0d9;"></span>
     <span class="small" id="dirtyIndicator" style="color:#cbd5e1;"></span>
     <button class="btn-ghost" id="btnSave">⬇ Download Backup</button>
     <button class="btn-ghost" id="btnLoad">📂 Restore Backup</button>
@@ -122,6 +123,7 @@
   <button data-tab="storehours">Store Hours</button>
   <button data-tab="timeoff">Time-Off Requests</button>
   <button data-tab="schedule">Schedule</button>
+  <button data-tab="history">Week History</button>
 </nav>
 
 <main>
@@ -130,13 +132,14 @@
   <section id="readme" class="active readme">
     <div class="card">
       <h2>How this works</h2>
-      <p class="hint" style="margin-top:8px;">This tool is preloaded with Store 758's real staff roster, availability, and store hours — the same data as the Excel workbook. Everything runs in your browser; nothing is uploaded anywhere.</p>
+      <p class="hint" style="margin-top:8px;">This tool is preloaded with Store 758's real staff roster, availability, and store hours — the same data as the Excel workbook. It also saves to a shared cloud backend, so whatever you generate here shows up the same way on any other computer that opens this page.</p>
       <h3>Quick start</h3>
       <ol>
         <li><b>Staff Roster</b> — add, edit, or remove employees. Each person has a job title, a weekly target/max, a minimum hours floor, an optional <b>Hours/Day</b>, and a day-by-day availability pattern.</li>
         <li><b>Store Hours</b> — the store's open/close time for each day of the week. Shifts are never generated outside these hours. Click <b>Apply Store Hours</b> to confirm any changes.</li>
         <li><b>Time-Off Requests</b> — log a request for a specific employee and week; those days are automatically skipped when you generate that week's schedule.</li>
         <li><b>Schedule</b> — pick or add a week, set its start date (click <b>Apply Date</b> to confirm), enter a <b>Total Hours Budget</b> for that week (click <b>Apply Budget</b> to confirm — required before Generate will run), then click <b>Generate Week</b> to auto-draft shifts. Click any day cell to fine-tune it by hand afterward. Manually edited cells are marked with a small ✎ and are never overwritten by Generate.</li>
+        <li><b>Week History</b> — every week you've ever clicked Generate on, kept permanently in the cloud so it's the same list no matter which computer you open this on. Click any row to view that week read-only.</li>
       </ol>
       <p class="hint">Every change anywhere in this app needs a button click to confirm it (Apply Changes, Apply Store Hours, Apply Date, Apply Budget, or a shift's Save button) — nothing applies just from typing or clicking away. Once confirmed, it's saved automatically to this browser; no separate save step.</p>
       <h3>Total Hours Budget</h3>
@@ -149,9 +152,10 @@
         <li><b>Nobody on staff works more than 5 days a week.</b> Everyone gets at least 2 days off, every week — Hours/Day employees per the rule above, and everyone else by capping Generate to their 5 longest-window available days instead of spreading thin across every day they're available.</li>
       </ul>
       <p class="small">Both rules only govern what <b>Generate</b> does automatically. Manual edits can still override them on individual cells if you need an exception — those cells just won't be touched by Generate afterward.</p>
-      <h3>Saving your work</h3>
-      <p>Every change you make (editing an employee, generating a week, adding time-off, etc.) saves itself automatically to this browser on this computer — there's no extra "save" step. Just close the tab whenever you're done; it'll be exactly as you left it next time you open the page here.</p>
-      <p>That automatic save only lives in this one browser on this one device, though — it does not appear on a different computer, phone, or browser. To move your data to another device (or keep an off-device backup just in case), click <b>⬇ Download Backup</b> to get a file with everything (roster, hours, time-off, all weeks), then use <b>📂 Restore Backup</b> on the other device to load that file in.</p>
+      <h3>Saving your work &amp; using it on another computer</h3>
+      <p>Every change you make (editing an employee, generating a week, adding time-off, etc.) saves itself automatically to this browser on this computer — there's no extra "save" step. It also sends that same save up to the cloud in the background; watch the little <b>☁</b> status text next to the "Saved on this device" note, top right, to see whether that last sync went through.</p>
+      <p>Because of that cloud save, opening this page on a <i>different</i> computer or phone will automatically load the latest version — whatever was last saved from any device — the moment the page loads or you refresh it. It's not instant/live while you're both looking at it at the same time, just current as of your last refresh. If the cloud can't be reached for some reason, the app just falls back to the last version saved on that device, so it never breaks — it'll simply say "☁ Offline" instead of "☁ Synced."</p>
+      <p><b>⬇ Download Backup</b> / <b>📂 Restore Backup</b> still work exactly as before, for an extra off-device copy or moving data around by hand if you ever want to.</p>
       <p>Use <b>🖨️ Print / Save PDF</b> on the Schedule tab to print the current week or save it as a PDF for posting or sharing. Use <b>Export CSV</b> (on the Schedule tab) to download the current week as a spreadsheet file you can open in Excel.</p>
       <h3>Notes</h3>
       <ul>
@@ -244,6 +248,29 @@
     </div>
   </section>
 
+  <!-- WEEK HISTORY -->
+  <section id="history">
+    <div class="toprow">
+      <div><h2>Week History</h2><p class="hint" style="margin:2px 0 0;">Every week you've ever clicked Generate on, kept permanently in the cloud — the same list on every computer. Click a row to view that week (read-only). Editing a week later doesn't change its history entry; each Generate adds a fresh snapshot.</p></div>
+      <button class="btn-light btn-sm" id="btnRefreshHistory">↻ Refresh List</button>
+    </div>
+    <div class="card">
+      <div id="historyStatus" class="small" style="margin-bottom:10px; color:var(--gray);"></div>
+      <div class="tbl-wrap">
+        <table id="historyTable"></table>
+      </div>
+    </div>
+    <div class="card" id="historyDetailCard" style="display:none;">
+      <div class="toprow">
+        <h3 id="historyDetailTitle" style="margin:0;"></h3>
+        <button class="btn-light btn-sm" id="btnCloseHistoryDetail">✕ Close</button>
+      </div>
+      <div class="tbl-wrap">
+        <table id="historyDetailTable"></table>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <!-- Employee modal -->
@@ -318,6 +345,146 @@
 /* ===================== CONSTANTS ===================== */
 const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const DAY_NAMES_FULL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+/* ===================== CLOUD SYNC ===================== */
+// Shared backend (Render): keeps one "current state" so any computer that opens this page picks up
+// the latest saved version, plus a permanent history of every week ever generated. If the network or
+// the backend is unavailable for any reason, the app falls back to this browser's own local save and
+// keeps working normally — cloud sync is a bonus layer on top of the auto-save, never a requirement.
+const API_BASE_URL = "https://store758-scheduler-api.onrender.com";
+const API_KEY = "af8817e5c55fa686014066e53dac1b17228ca8673549a39c";
+function setCloudStatus(kind, text){
+  const el = document.getElementById("cloudStatus");
+  if(!el) return;
+  const colors = {ok:"#86efac", warn:"#fde68a", err:"#fca5a5", busy:"#9fb0d9"};
+  el.style.color = colors[kind] || "#9fb0d9";
+  el.textContent = text;
+}
+function syncStateToServer(){
+  setCloudStatus("busy", "☁ Syncing…");
+  fetch(API_BASE_URL+"/api/state", {
+    method:"PUT",
+    headers:{"Content-Type":"application/json", "X-Api-Key":API_KEY},
+    body: JSON.stringify({state})
+  }).then(r=>{
+    if(!r.ok) throw new Error("status "+r.status);
+    setCloudStatus("ok", "☁ Synced — visible on other computers");
+  }).catch(err=>{
+    setCloudStatus("err", "☁ Not synced (offline?) — saved on this device only");
+    console.warn("Cloud sync failed (state still saved locally):", err);
+  });
+}
+function loadLatestFromServer(){
+  setCloudStatus("busy", "☁ Checking for the latest saved data…");
+  fetch(API_BASE_URL+"/api/state")
+    .then(r=>{ if(!r.ok) throw new Error("status "+r.status); return r.json(); })
+    .then(data=>{
+      if(data && data.state && data.state.employees && data.state.weeks && data.state.storeHours){
+        state = data.state;
+        ensureEmployeeInAllWeeks();
+        if(!state.activeWeekId || !getWeek(state.activeWeekId)) state.activeWeekId = state.weeks[0].id;
+        autoSaveLocal();
+        renderAll();
+        setCloudStatus("ok", "☁ Loaded the latest saved data");
+      } else {
+        // Nothing saved to the cloud yet (first time this backend has been used) — push what we have.
+        setCloudStatus("ok", "☁ Connected");
+        syncStateToServer();
+      }
+    })
+    .catch(err=>{
+      setCloudStatus("err", "☁ Offline — showing the last version saved on this device");
+      console.warn("Could not load cloud state (using local copy):", err);
+    });
+}
+function archiveWeekSnapshot(week){
+  const snapshot = {
+    week: JSON.parse(JSON.stringify(week)),
+    employees: state.employees.map(e=>({uid:e.uid, name:e.name, title:e.title, type:e.type, minHrs:e.minHrs, cap:e.cap, fixedDailyHours:e.fixedDailyHours}))
+  };
+  fetch(API_BASE_URL+"/api/history", {
+    method:"POST",
+    headers:{"Content-Type":"application/json", "X-Api-Key":API_KEY},
+    body: JSON.stringify({
+      weekLabel: week.label,
+      startDate: week.startDate,
+      budgetHours: week.budgetHours,
+      totalScheduledHours: weekTotalScheduledHours(week),
+      snapshot
+    })
+  }).then(r=>{
+    if(!r.ok) throw new Error("status "+r.status);
+  }).catch(err=>{
+    console.warn("Could not save this generated week to the permanent history (schedule itself is fine):", err);
+  });
+}
+function loadHistoryList(){
+  const status = document.getElementById("historyStatus");
+  status.textContent = "Loading…";
+  fetch(API_BASE_URL+"/api/history")
+    .then(r=>{ if(!r.ok) throw new Error("status "+r.status); return r.json(); })
+    .then(data=>{
+      const weeks = data.weeks || [];
+      renderHistoryList(weeks);
+      status.textContent = weeks.length ? "" : "No weeks generated yet. Once you click Generate Week on the Schedule tab, it'll show up here.";
+    })
+    .catch(err=>{
+      document.getElementById("historyTable").innerHTML = "";
+      status.textContent = "Couldn't reach the cloud history — check your connection and try Refresh List.";
+      console.warn("Could not load week history:", err);
+    });
+}
+function renderHistoryList(weeks){
+  const tbl = document.getElementById("historyTable");
+  if(!weeks.length){ tbl.innerHTML = ""; return; }
+  let html = "<tr><th class='leftalign'>Week</th><th>Start Date</th><th>Budget</th><th>Scheduled</th><th>Generated</th><th></th></tr>";
+  weeks.forEach(w=>{
+    const gen = new Date(w.generatedAt);
+    html += `<tr>
+      <td class="leftalign"><b>${esc(w.weekLabel)}</b></td>
+      <td>${w.startDate ? fmtDate(w.startDate) : ""}</td>
+      <td>${w.budgetHours!=null ? w.budgetHours : ""}</td>
+      <td>${w.totalScheduledHours!=null ? (w.totalScheduledHours%1===0?w.totalScheduledHours:w.totalScheduledHours.toFixed(1)) : ""}</td>
+      <td class="small">${gen.toLocaleString()}</td>
+      <td><button class="btn-light btn-sm" data-view-history="${w.id}">View</button></td>
+    </tr>`;
+  });
+  tbl.innerHTML = html;
+  tbl.querySelectorAll("[data-view-history]").forEach(b=>b.addEventListener("click", ()=>viewHistoryWeek(b.dataset.viewHistory)));
+}
+function viewHistoryWeek(id){
+  fetch(API_BASE_URL+"/api/history/"+id)
+    .then(r=>{ if(!r.ok) throw new Error("status "+r.status); return r.json(); })
+    .then(data=>renderHistoryDetail(data))
+    .catch(err=>{
+      alert("Could not load that week — check your connection and try again.");
+      console.warn("Could not load history detail:", err);
+    });
+}
+function renderHistoryDetail(data){
+  const week = data.snapshot.week;
+  const emps = data.snapshot.employees;
+  document.getElementById("historyDetailTitle").textContent =
+    data.weekLabel + (week.startDate ? " — starting "+week.startDate : "") + " · generated " + new Date(data.generatedAt).toLocaleString();
+  const tbl = document.getElementById("historyDetailTable");
+  let html = "<tr><th class='leftalign'>Name</th><th class='leftalign'>Job Title</th>"
+    + DAY_NAMES.map((d,i)=>`<th>${d}${week.startDate? " "+fmtDate(addDaysISO(week.startDate,i)) : ""}</th>`).join("")
+    + "<th>Weekly Hours</th></tr>";
+  emps.forEach(e=>{
+    const sched = (week.schedule && week.schedule[e.uid]) || [null,null,null,null,null,null,null];
+    let total = 0;
+    const cells = sched.map(s=>{
+      if(!s) return "<td class='small' style='color:#9ca3af;'>OFF</td>";
+      total += (s.end - s.start);
+      return `<td>${floatToHHMM(s.start)}-${floatToHHMM(s.end)}</td>`;
+    }).join("");
+    html += `<tr><td class="leftalign"><b>${esc(e.name)}</b></td><td class="leftalign">${esc(e.title)}</td>${cells}<td><b>${total%1===0?total:total.toFixed(1)}</b></td></tr>`;
+  });
+  tbl.innerHTML = html;
+  const card = document.getElementById("historyDetailCard");
+  card.style.display = "";
+  card.scrollIntoView({behavior:"smooth"});
+}
 
 /* ===================== TIME HELPERS ===================== */
 function hhmmToFloat(hhmm){
@@ -461,6 +628,7 @@ function markDirty(){
   ind.innerHTML = '<span class="dirty-dot" style="background:#22c55e;"></span>Saved on this device';
   clearTimeout(_dirtyIndicatorTimer);
   _dirtyIndicatorTimer = setTimeout(()=>{ ind.innerHTML = ""; }, 2200);
+  syncStateToServer();
 }
 function markClean(){
   dirty = false;
@@ -718,6 +886,7 @@ document.querySelectorAll("nav button").forEach(btn=>{
     document.querySelectorAll("main section").forEach(s=>s.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById(btn.dataset.tab).classList.add("active");
+    if(btn.dataset.tab === "history") loadHistoryList();
   });
 });
 
@@ -1017,11 +1186,18 @@ document.getElementById("btnGenerate").addEventListener("click", ()=>{
   generateWeek(state.activeWeekId);
   renderSchedule();
   showToast("Week generated.");
+  archiveWeekSnapshot(week);
 });
 document.getElementById("btnResetWeek").addEventListener("click", ()=>{
   if(!confirm("Clear every shift in "+activeWeek().label+"? This removes manual edits too.")) return;
   resetWeek(state.activeWeekId);
   renderSchedule();
+});
+
+/* ===================== WEEK HISTORY TAB ===================== */
+document.getElementById("btnRefreshHistory").addEventListener("click", loadHistoryList);
+document.getElementById("btnCloseHistoryDetail").addEventListener("click", ()=>{
+  document.getElementById("historyDetailCard").style.display = "none";
 });
 
 function renderSchedule(){
@@ -1224,7 +1400,8 @@ document.getElementById("fileLoadInput").addEventListener("change", (e)=>{
       autoSaveLocal();
       markClean();
       renderAll();
-      showToast("Backup restored — now saved automatically on this browser too.");
+      syncStateToServer();
+      showToast("Backup restored — saved on this browser and synced to the cloud.");
     }catch(err){
       alert("That file doesn't look like a valid schedule data file.");
     }
@@ -1258,6 +1435,7 @@ function renderAll(){
   renderSchedule();
 }
 renderAll();
+loadLatestFromServer();
 </script>
 </body>
 </html>
