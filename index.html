@@ -144,7 +144,7 @@
       <p class="hint">Every change anywhere in this app needs a button click to confirm it (Apply Changes, Apply Store Hours, Apply Date, Apply Budget, or a shift's Save button) — nothing applies just from typing or clicking away. Once confirmed, it's saved automatically to this browser; no separate save step.</p>
       <h3>Total Hours Budget</h3>
       <p>Each week has its own <b>Total Hours Budget</b> — the combined hours for the entire staff that week (e.g. 130). Generate always respects: each employee's own availability, store hours, time-off requests, and their individual Min/Max Hrs — the weekly budget is an <i>additional</i> ceiling on top of all of that, not a replacement for it.</p>
-      <p>When the budget isn't enough to cover everyone at their normal individual target, <b>anyone with an Hours/Day value set is filled first</b> — they get scheduled toward their own normal target before anyone else, in roster order. Whatever's left of the budget is then spread across everyone else, also in roster order. If the budget runs out, people further down the list may get zero hours that week — that's expected, not a bug.</p>
+      <p>When the budget isn't enough to cover everyone at their normal individual target, <b>anyone with an Hours/Day value set is filled first</b> — they get scheduled toward their own normal target before anyone else. Whatever's left of the budget then goes to everyone else (no Hours/Day value set): first, every one of them is guaranteed at least their own <b>Min Hrs</b> floor (split fairly across everyone if the budget can't stretch to cover every floor in full, rather than fully funding whoever's earlier on the roster and leaving whoever's later with zero) — then any budget still left over tops people up toward their individual Weekly Target, in roster order. If the budget is tight enough that even everyone's floor can't be fully covered, hours are shared out proportionally rather than concentrated on one part of the list.</p>
       <p>The banner above the schedule grid always shows the running total vs. the budget, and turns red if it's ever over — including from manual edits, which are allowed but flagged rather than blocked.</p>
       <h3>Two more scheduling rules, always on</h3>
       <ul>
@@ -758,7 +758,24 @@ function isPTSalesAdvisor(emp){ return emp.type==="PT" && /SALES ADVISOR/i.test(
 function assignEmployeeWaterfill(emp, week, windows, manualArr, personalCap, minShiftHours){
   minShiftHours = minShiftHours || 0;
   const schedArr = week.schedule[emp.uid];
-  const activeDays = [0,1,2,3,4,5,6].filter(d=>windows[d]!==null && !manualArr[d]);
+  let activeDays = [0,1,2,3,4,5,6].filter(d=>windows[d]!==null && !manualArr[d]);
+  if(minShiftHours>0 && personalCap>0){
+    // Spreading a modest target evenly across every available day would put each day's share below the
+    // minimum shift length, which then gets bumped back up to it — overshooting the early days and
+    // leaving too little of the budget for the last one(s) to even hit the floor, so they get dropped
+    // entirely (e.g. a 15h target over 5 days: 4 days round up to 3.5h = 14h used, nothing left for a
+    // legal 5th shift, landing at 14 instead of 15). Instead, only use as many days as the target can
+    // actually support at the minimum shift length, picking the longest-window days first — fewer,
+    // properly-sized shifts instead of one that can't be funded.
+    const maxDaysForFloor = Math.max(1, Math.floor(personalCap/minShiftHours + 1e-9));
+    if(activeDays.length > maxDaysForFloor){
+      activeDays = activeDays
+        .map(d=>({d, dur: windows[d].end - windows[d].start}))
+        .sort((a,b)=>b.dur-a.dur)
+        .slice(0, maxDaysForFloor)
+        .map(x=>x.d);
+    }
+  }
   let remainingCap = Math.max(0, personalCap);
   let remainingDays = activeDays.length;
   let used = 0;
@@ -953,6 +970,8 @@ function assignManagerCoverage(week, weekIndex, managerEmps, windowsByEmp, manua
 //     Hours/Day set keep their existing flexible/waterfilled shift lengths, just restricted to at most
 //     their 5 longest-window active days instead of every day they're available. Part-time Sales Advisors
 //     additionally never get a shift shorter than PT_MIN_SHIFT_HOURS (3.5h) — see assignEmployeeWaterfill.
+//     Everyone with no Hours/Day set is guaranteed at least their own Min Hrs floor before the budget's
+//     leftover is spent topping anyone up further — see the flexInfo two-pass block below.
 //  3. Managers (title contains "MGR") are covered every day: Sun-Fri always has exactly 2 on (an opener
 //     + a closer), Saturday always has all 3 (opener + mid-shift + closer) — see assignManagerCoverage().
 //     There's always a manager closing; the Store Manager closes exactly 2 nights/week and the Department
@@ -1076,7 +1095,15 @@ function generateWeek(weekId){
     });
   });
 
-  flexEmps.forEach(emp=>{
+  // Flex employees (no Hours/Day set) split whatever's left of the budget after managers/fixed-hours
+  // staff are funded. 2026-08-25: this used to hand it out strictly in roster order up to each person's
+  // own Weekly Target — so once the budget ran dry partway through, everyone further down the roster got
+  // scheduled zero hours, no matter how available they actually were that week. Now it's two passes:
+  // first make sure every flex employee gets at least their own Min Hrs floor (shared fairly if the
+  // budget can't stretch to cover everyone's floor in full, rather than fully funding whoever's earlier
+  // on the roster and leaving whoever's later with nothing), THEN whatever's left tops people up toward
+  // their individual targets, in roster order, same priority style as before.
+  const flexInfo = flexEmps.map(emp=>{
     const windows = windowsByEmp[emp.uid];
     const manualArr = week.manual[emp.uid];
     let availableDays = [0,1,2,3,4,5,6].filter(d=>windows[d]!==null && !manualArr[d]);
@@ -1090,9 +1117,28 @@ function generateWeek(weekId){
     }
     const restrictedWindows = [0,1,2,3,4,5,6].map(d=>availableDays.includes(d) ? windows[d] : null);
     const personalRemaining = Math.max(0, emp.cap - manualUsedByEmp[emp.uid]);
-    const capForThisPass = Math.min(personalRemaining, budgetRemaining);
-    const minShift = isPTSalesAdvisor(emp) ? PT_MIN_SHIFT_HOURS : 0;
-    const used = assignEmployeeWaterfill(emp, week, restrictedWindows, manualArr, capForThisPass, minShift);
+    // Upper bound on what this person's own availability could ever support this week, regardless of
+    // budget — so the floor pool never reserves more than someone could actually be scheduled for.
+    const feasibleMax = restrictedWindows.reduce((sum,w)=> w ? sum+Math.min(w.end-w.start,8) : sum, 0);
+    const minTarget = Math.max(0, emp.minHrs - manualUsedByEmp[emp.uid]);
+    const minNeeded = Math.min(minTarget, personalRemaining, feasibleMax);
+    return {emp, restrictedWindows, manualArr, personalRemaining, minNeeded, minShift: isPTSalesAdvisor(emp) ? PT_MIN_SHIFT_HOURS : 0};
+  });
+
+  const totalMinNeeded = flexInfo.reduce((sum,info)=>sum+info.minNeeded, 0);
+  const floorScale = totalMinNeeded>0 ? Math.min(1, budgetRemaining/totalMinNeeded) : 1;
+  flexInfo.forEach(info=>{ info.floorTarget = roundHalf(info.minNeeded * floorScale); });
+
+  let leftover = Math.max(0, budgetRemaining - flexInfo.reduce((sum,info)=>sum+info.floorTarget, 0));
+  flexInfo.forEach(info=>{
+    const room = Math.max(0, info.personalRemaining - info.floorTarget);
+    const bonus = Math.min(room, leftover);
+    info.finalTarget = info.floorTarget + bonus;
+    leftover -= bonus;
+  });
+
+  flexInfo.forEach(info=>{
+    const used = assignEmployeeWaterfill(info.emp, week, info.restrictedWindows, info.manualArr, info.finalTarget, info.minShift);
     budgetRemaining = Math.max(0, budgetRemaining - used);
   });
 
