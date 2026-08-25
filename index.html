@@ -152,6 +152,14 @@
         <li><b>Nobody on staff works more than 5 days a week.</b> Everyone gets at least 2 days off, every week — Hours/Day employees per the rule above, and everyone else by capping Generate to their 5 longest-window available days instead of spreading thin across every day they're available.</li>
       </ul>
       <p class="small">Both rules only govern what <b>Generate</b> does automatically. Manual edits can still override them on individual cells if you need an exception — those cells just won't be touched by Generate afterward.</p>
+      <h3>Full-timer fixed shift menu (Joshua, Mohamad, Tatiana, Andrea, Jasmine Davis)</h3>
+      <p>The 5 employees with Hours/Day set to <b>8</b> aren't started at just any time — Generate only ever picks from a specific menu of start times, and every one of those shifts runs 9 hours start-to-end with a <b>1-hour unpaid lunch break</b> built in, so it's 8 paid hours inside a 9-hour shift:</p>
+      <ul>
+        <li><b>Sun:</b> 8:00 AM–5:00 PM or 10:00 AM–7:00 PM only.</li>
+        <li><b>Mon–Thu:</b> 8:00–5:00, 9:00–6:00, 10:00–7:00, 11:00–8:00, or 12:00–9:00.</li>
+        <li><b>Fri–Sat:</b> all of the Mon–Thu options, plus 1:00 PM–10:00 PM.</li>
+      </ul>
+      <p class="small">Generate picks the earliest of these that fits the person's actual availability that day. Day cells show the break right in the label, e.g. "8:00 AM–5:00 PM (8h +1h break)". Manually editing one of these cells shows an <b>Unpaid Break</b> field too, so you can add or adjust a break on a manual edit the same way.</p>
       <h3>Saving your work &amp; using it on another computer</h3>
       <p>Every change you make (editing an employee, generating a week, adding time-off, etc.) saves itself automatically to this browser on this computer — there's no extra "save" step. It also sends that same save up to the cloud in the background; watch the little <b>☁</b> status text next to the "Saved on this device" note, top right, to see whether that last sync went through.</p>
       <p>Because of that cloud save, opening this page on a <i>different</i> computer or phone will automatically load the latest version — whatever was last saved from any device — the moment the page loads or you refresh it. It's not instant/live while you're both looking at it at the same time, just current as of your last refresh. If the cloud can't be reached for some reason, the app just falls back to the last version saved on that device, so it never breaks — it'll simply say "☁ Offline" instead of "☁ Synced."</p>
@@ -308,6 +316,8 @@
       <div class="field"><label>Start</label><input type="time" id="shiftStart"></div>
       <div class="field"><label>End</label><input type="time" id="shiftEnd"></div>
     </div>
+    <div class="field"><label>Unpaid Break (hrs, optional)</label><input type="number" id="shiftBreak" min="0" max="4" step="0.5" value="0"></div>
+    <p class="small" style="margin-top:-4px;">Total hours shown/counted for this shift = end minus start minus this break. Leave at 0 for a normal shift with no break.</p>
     <p class="small" id="shiftAvailNote" style="margin-top:-4px;"></p>
     <div class="modal-actions" style="justify-content:space-between;">
       <div>
@@ -475,8 +485,9 @@ function renderHistoryDetail(data){
     let total = 0;
     const cells = sched.map(s=>{
       if(!s) return "<td class='small' style='color:#9ca3af;'>OFF</td>";
-      total += (s.end - s.start);
-      return `<td>${floatToHHMM(s.start)}-${floatToHHMM(s.end)}</td>`;
+      total += shiftWorkedHours(s);
+      const brk = s.unpaidBreak ? ` <span class="small" style="color:#9ca3af;">(+${s.unpaidBreak%1===0?s.unpaidBreak:s.unpaidBreak.toFixed(1)}h brk)</span>` : "";
+      return `<td>${floatToHHMM(s.start)}-${floatToHHMM(s.end)}${brk}</td>`;
     }).join("");
     html += `<tr><td class="leftalign"><b>${esc(e.name)}</b></td><td class="leftalign">${esc(e.title)}</td>${cells}<td><b>${total%1===0?total:total.toFixed(1)}</b></td></tr>`;
   });
@@ -508,6 +519,10 @@ function floatTo12h(f){
   return h12+":"+String(mm).padStart(2,"0")+" "+ap;
 }
 function roundHalf(x){ return Math.floor(x*2+0.5)/2; }
+// Worked hours for a shift, net of any unpaid break inside it (see FIXED_SHIFT_* below — the 8-hour
+// full-timer shift menu produces 9-hour spans with a 1-hour unpaid lunch baked in via s.unpaidBreak).
+// Manually-entered shifts have no break unless one is explicitly set in the shift modal.
+function shiftWorkedHours(s){ return s ? (s.end - s.start - (s.unpaidBreak||0)) : 0; }
 function parseAvailRawStr(s){
   if(s==="X") return {mode:"off", windows:[]};
   if(s==="00:00 - 00:00") return {mode:"full", windows:[]};
@@ -562,6 +577,46 @@ const SEED_RAW_EMPLOYEES = [
   ["955520","Sana","PT SALES ADVISOR","PT",15,29.5, ["X","08:00 - 14:00","08:00 - 14:00","X","08:00 - 14:00","08:00 - 14:00","X"]]
 ];
 
+// Store hours (2026-08-25 update): widened to cover the full-timer 9-hour shift menu below (earliest
+// possible start 8:00, latest possible end 22:00 on Fri/Sat). Existing saved states get migrated to
+// these once (see the storeHoursV2Applied flag in ensureEmployeeInAllWeeks) rather than on every load,
+// so the store manager can still edit Store Hours normally afterward without it being overwritten again.
+const STORE_HOURS_V2 = {
+  0:{open:"08:00",close:"19:00"},
+  1:{open:"08:00",close:"21:00"},
+  2:{open:"08:00",close:"21:00"},
+  3:{open:"08:00",close:"21:00"},
+  4:{open:"08:00",close:"21:00"},
+  5:{open:"08:00",close:"22:00"},
+  6:{open:"08:00",close:"22:00"}
+};
+// Full-timer (fixedDailyHours===8) fixed shift menu (2026-08-25): rather than starting anywhere within
+// store hours, these 5 employees (Joshua, Mohamad, Tatiana, Andrea, Jasmine) can only be scheduled to
+// one of a specific set of start times per day of week. Every option is a 9-hour start-to-end span that
+// includes a 1-hour unpaid lunch break in the middle — so it shows as e.g. "8:00 AM-5:00 PM" but only 8
+// hours count as worked toward their cap/budget (see shiftWorkedHours() and s.unpaidBreak).
+const FIXED_SHIFT_SPAN_HOURS = 9;
+const FIXED_SHIFT_BREAK_HOURS = 1;
+const FIXED_SHIFT_STARTS = {
+  0:[8,10],              // Sunday: 8:00-5:00 or 10:00-7:00 only
+  1:[8,9,10,11,12],      // Mon
+  2:[8,9,10,11,12],      // Tue
+  3:[8,9,10,11,12],      // Wed
+  4:[8,9,10,11,12],      // Thu
+  5:[8,9,10,11,12,13],   // Fri — adds the 1:00-10:00 option
+  6:[8,9,10,11,12,13]    // Sat — adds the 1:00-10:00 option
+};
+// Picks the earliest menu start time (for this day of week) whose full 9-hour span fits inside the
+// employee's actual available window that day. Returns null if nothing on the menu fits, so the caller
+// can fall back to the old flexible-clip behavior rather than silently dropping the day.
+function pickFixedShiftStart(dayIdx, window){
+  const menu = FIXED_SHIFT_STARTS[dayIdx] || [];
+  for(const startH of menu){
+    if(startH >= window.start - 1e-9 && (startH + FIXED_SHIFT_SPAN_HOURS) <= window.end + 1e-9) return startH;
+  }
+  return null;
+}
+
 function buildSeedState(){
   const employees = SEED_RAW_EMPLOYEES.map((row,i)=>{
     const [id,name,title,type,min,cap,rawAvail] = row;
@@ -573,15 +628,7 @@ function buildSeedState(){
       availability: rawAvail.map(parseAvailRawStr)
     };
   });
-  const storeHours = {
-    0:{open:"11:00",close:"18:00"},
-    1:{open:"10:00",close:"20:00"},
-    2:{open:"10:00",close:"20:00"},
-    3:{open:"10:00",close:"20:00"},
-    4:{open:"10:00",close:"20:00"},
-    5:{open:"10:00",close:"21:00"},
-    6:{open:"10:00",close:"21:00"}
-  };
+  const storeHours = JSON.parse(JSON.stringify(STORE_HOURS_V2));
   const week1Start = nearestSundayOnOrBefore(new Date().toISOString().slice(0,10));
   const week1 = makeEmptyWeek("w1","Week 1", week1Start, employees);
   return {
@@ -591,6 +638,7 @@ function buildSeedState(){
     nextToId: 1,
     employees,
     storeHours,
+    storeHoursV2Applied: true,
     timeOff: [],
     weeks: [week1],
     activeWeekId: "w1"
@@ -644,6 +692,12 @@ function ensureEmployeeInAllWeeks(){
     // user already set, e.g. someone who deliberately turned a required role's fixed hours back off.)
     if(typeof e.fixedDailyHours === "undefined"){ e.fixedDailyHours = e.cap>=40 ? 8 : null; }
   });
+  // One-time migration (2026-08-25): widen Store Hours to cover the new full-timer shift menu. Only
+  // ever applied once per saved state — after that the store manager's own edits to Store Hours stick.
+  if(!state.storeHoursV2Applied){
+    state.storeHours = JSON.parse(JSON.stringify(STORE_HOURS_V2));
+    state.storeHoursV2Applied = true;
+  }
   state.weeks.forEach(w=>{
     state.employees.forEach(e=>{
       if(!w.schedule[e.uid]) w.schedule[e.uid] = [null,null,null,null,null,null,null];
@@ -774,7 +828,7 @@ function generateWeek(weekId){
     const schedArr = week.schedule[emp.uid];
     let used = 0;
     [0,1,2,3,4,5,6].forEach(d=>{
-      if(manualArr[d] && schedArr[d]) used += (schedArr[d].end - schedArr[d].start);
+      if(manualArr[d] && schedArr[d]) used += shiftWorkedHours(schedArr[d]);
       else if(!manualArr[d]) schedArr[d] = null;
     });
     manualUsedByEmp[emp.uid] = used;
@@ -827,6 +881,29 @@ function generateWeek(weekId){
       if(manualArr[d]) return; // manual cells are never touched
       if(!workDays.includes(d)){ schedArr[d] = null; return; }
       const {start,end} = windows[d];
+
+      // The 8-hour full-timer shift menu: pick one of the fixed start times for this day of week whose
+      // full 9-hour span (8 worked + 1 unpaid lunch) fits inside the employee's real window. Anyone else
+      // with a different Hours/Day value (e.g. a 4-hour fixed PT shift) keeps the old flexible clip.
+      if(emp.fixedDailyHours === 8){
+        const menuStart = pickFixedShiftStart(d, {start,end});
+        if(menuStart !== null){
+          const worked = FIXED_SHIFT_SPAN_HOURS - FIXED_SHIFT_BREAK_HOURS; // 8
+          const take = Math.min(worked, budgetRemaining);
+          if(take>0){
+            // If the shared budget can't cover the full 8, shorten from the end of the shift; the start
+            // time and the break stay put.
+            schedArr[d] = {start:menuStart, end: menuStart+FIXED_SHIFT_BREAK_HOURS+take, unpaidBreak: FIXED_SHIFT_BREAK_HOURS};
+            budgetRemaining -= take;
+          } else {
+            schedArr[d] = null;
+          }
+          return;
+        }
+        // No menu start fits this day's real window (e.g. an unusually narrow availability window) —
+        // fall back to the old flexible clip below rather than dropping the day entirely.
+      }
+
       const maxFeas = Math.min(end-start, emp.fixedDailyHours); // clipped if the day's window is shorter
       const take = Math.min(maxFeas, budgetRemaining);
       if(take>0){
@@ -876,7 +953,7 @@ function resetWeek(weekId){
 }
 
 function weeklyHours(week, empUid){
-  return week.schedule[empUid].reduce((sum,s)=> sum + (s ? (s.end-s.start) : 0), 0);
+  return week.schedule[empUid].reduce((sum,s)=> sum + shiftWorkedHours(s), 0);
 }
 
 /* ===================== RENDER: TABS ===================== */
@@ -1255,9 +1332,10 @@ function renderSchedule(){
       if(isConflict) cls.push("conflict");
       let label = "OFF";
       if(s){
-        const dayHrs = s.end - s.start;
+        const dayHrs = shiftWorkedHours(s);
         const dayHrsStr = dayHrs%1===0 ? dayHrs : dayHrs.toFixed(1);
-        label = floatTo12h(s.start)+"–"+floatTo12h(s.end)+" <span class=\"small\" style=\"color:#6b7280;\">("+dayHrsStr+"h)</span>";
+        const breakNote = s.unpaidBreak ? " +"+(s.unpaidBreak%1===0?s.unpaidBreak:s.unpaidBreak.toFixed(1))+"h break" : "";
+        label = floatTo12h(s.start)+"–"+floatTo12h(s.end)+" <span class=\"small\" style=\"color:#6b7280;\">("+dayHrsStr+"h"+breakNote+")</span>";
       }
       html += `<td class="${cls.join(' ')}" data-emp="${e.uid}" data-day="${i}">${isConflict?'<span class="warn">⚠</span>':''}${label}</td>`;
     });
@@ -1285,7 +1363,7 @@ function renderCoverage(week){
     let count=0, hrs=0, mgr=false;
     state.employees.forEach(e=>{
       const s = week.schedule[e.uid][i];
-      if(s){ count++; hrs += (s.end-s.start); if(/MGR/i.test(e.title)) mgr=true; }
+      if(s){ count++; hrs += shiftWorkedHours(s); if(/MGR/i.test(e.title)) mgr=true; }
     });
     staffRow += `<td>${count}</td>`;
     hrsRow += `<td>${hrs%1===0?hrs:hrs.toFixed(1)}</td>`;
@@ -1305,6 +1383,7 @@ function openShiftModal(empUid, day){
   document.getElementById("shiftModalTitle").textContent = emp.name+" — "+DAY_NAMES_FULL[day];
   document.getElementById("shiftStart").value = s ? floatToHHMM(s.start) : "09:00";
   document.getElementById("shiftEnd").value = s ? floatToHHMM(s.end) : "17:00";
+  document.getElementById("shiftBreak").value = (s && s.unpaidBreak) ? s.unpaidBreak : 0;
   const store = state.storeHours[day];
   document.getElementById("shiftAvailNote").textContent = `Store hours ${store.open}–${store.close}. Availability doesn't block manual edits.`;
   document.getElementById("shiftModalBackdrop").classList.add("show");
@@ -1336,8 +1415,11 @@ document.getElementById("shiftSaveBtn").addEventListener("click", ()=>{
   let s = hhmmToFloat(startV), e = hhmmToFloat(endV);
   if(e<=s){ e += 24; }
   if(e-s > 16){ alert("That shift is longer than 16 hours — double check the times."); return; }
+  let brk = parseFloat(document.getElementById("shiftBreak").value);
+  if(!isFinite(brk) || brk<0) brk = 0;
+  if(brk >= e-s){ alert("The unpaid break can't be as long as (or longer than) the whole shift."); return; }
   const week = activeWeek();
-  week.schedule[empUid][day] = {start:s, end:e};
+  week.schedule[empUid][day] = brk>0 ? {start:s, end:e, unpaidBreak:brk} : {start:s, end:e};
   week.manual[empUid][day] = true;
   markDirty();
   document.getElementById("shiftModalBackdrop").classList.remove("show");
