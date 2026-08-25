@@ -1196,6 +1196,19 @@ function roleBadge(e){
   return `<span class="small" style="background:${r.bg}; color:${r.fg}; font-weight:700; padding:1px 7px; border-radius:20px; white-space:nowrap;">${r.label}</span>`;
 }
 
+// Per-person row coloring on the Schedule tab (2026-08-25): a distinct soft background per employee so
+// each person's whole week is easy to visually trace across the table, separate from the Role badge
+// colors (which group by role, not by individual). Cycles through a 16-color palette by that person's
+// position in the current display order — plenty of separation for adjacent rows even though colors
+// repeat for staff far apart in a 24-person roster.
+const ROW_COLOR_PALETTE = [
+  "#eef2ff","#ecfdf5","#fff7ed","#fef2f2","#f0f9ff","#fdf4ff","#fefce8","#f0fdfa",
+  "#faf5ff","#fff1f2","#f7fee7","#eff6ff","#fdf2f8","#f5f3ff","#ecfeff","#fffbeb"
+];
+function rowColorFor(displayIndex){
+  return ROW_COLOR_PALETTE[displayIndex % ROW_COLOR_PALETTE.length];
+}
+
 /* ---- employee modal ---- */
 let editingEmpUid = null;
 function openEmpModal(uid){
@@ -1506,7 +1519,7 @@ function renderSchedule(){
   DAY_NAMES.forEach((d,i)=>{ html += `<th>${d} ${fmtDate(addDaysISO(week.startDate,i))}</th>`; });
   html += "<th>Hrs</th><th>Min</th><th>Target</th><th>Status</th></tr>";
 
-  sortedForDisplay(state.employees).forEach(e=>{
+  sortedForDisplay(state.employees).forEach((e,rowIdx)=>{
     const sched = week.schedule[e.uid] || [null,null,null,null,null,null,null];
     const manual = week.manual[e.uid] || [false,false,false,false,false,false,false];
     const hrs = weeklyHours(week, e.uid);
@@ -1517,7 +1530,12 @@ function renderSchedule(){
       else status = `<span class="pill pill-ok">OK</span>`;
     }
     const r = roleInfo(e);
-    html += `<tr><td class="leftalign" style="border-left:4px solid ${r.fg};"><b>${esc(e.name)}</b></td><td class="leftalign">${esc(e.title)}</td><td>${roleBadge(e)}</td>`;
+    // Inline background on every <td> (not just the <tr>) so this per-person color actually wins over
+    // the table's default zebra-striping rule (tr:nth-child(even) td{...}), which sets its own explicit
+    // background on each cell and would otherwise paint right over a row-level background.
+    const rc = rowColorFor(rowIdx);
+    const rcStyle = `background:${rc};`;
+    html += `<tr><td class="leftalign" style="${rcStyle}border-left:4px solid ${r.fg};"><b>${esc(e.name)}</b></td><td class="leftalign" style="${rcStyle}">${esc(e.title)}</td><td style="${rcStyle}">${roleBadge(e)}</td>`;
     const toSet = toByEmp[e.uid] || new Set();
     DAY_NAMES.forEach((d,i)=>{
       const s = sched[i];
@@ -1536,9 +1554,9 @@ function renderSchedule(){
         const roleNote = s.shiftRole && roleTags[s.shiftRole] ? `<br><span class="small" style="color:#2563eb; font-weight:700;">${roleTags[s.shiftRole]}</span>` : "";
         label = floatTo12h(s.start)+"–"+floatTo12h(s.end)+" <span class=\"small\" style=\"color:#6b7280;\">("+dayHrsStr+"h"+breakNote+")</span>"+roleNote;
       }
-      html += `<td class="${cls.join(' ')}" data-emp="${e.uid}" data-day="${i}">${isConflict?'<span class="warn">⚠</span>':''}${label}</td>`;
+      html += `<td class="${cls.join(' ')}" style="${rcStyle}" data-emp="${e.uid}" data-day="${i}">${isConflict?'<span class="warn">⚠</span>':''}${label}</td>`;
     });
-    html += `<td><b>${hrs%1===0?hrs:hrs.toFixed(1)}</b></td><td>${e.minHrs}</td><td>${e.cap}</td><td>${status}</td>`;
+    html += `<td style="${rcStyle}"><b>${hrs%1===0?hrs:hrs.toFixed(1)}</b></td><td style="${rcStyle}">${e.minHrs}</td><td style="${rcStyle}">${e.cap}</td><td style="${rcStyle}">${status}</td>`;
     html += "</tr>";
   });
   tbl.innerHTML = html;
