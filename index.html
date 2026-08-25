@@ -1253,7 +1253,12 @@ function renderSchedule(){
       if(!s) cls.push("off");
       if(isManual) cls.push("manual");
       if(isConflict) cls.push("conflict");
-      const label = s ? (floatTo12h(s.start)+"–"+floatTo12h(s.end)) : "OFF";
+      let label = "OFF";
+      if(s){
+        const dayHrs = s.end - s.start;
+        const dayHrsStr = dayHrs%1===0 ? dayHrs : dayHrs.toFixed(1);
+        label = floatTo12h(s.start)+"–"+floatTo12h(s.end)+" <span class=\"small\" style=\"color:#6b7280;\">("+dayHrsStr+"h)</span>";
+      }
       html += `<td class="${cls.join(' ')}" data-emp="${e.uid}" data-day="${i}">${isConflict?'<span class="warn">⚠</span>':''}${label}</td>`;
     });
     html += `<td><b>${hrs%1===0?hrs:hrs.toFixed(1)}</b></td><td>${e.minHrs}</td><td>${e.cap}</td><td>${status}</td>`;
