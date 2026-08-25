@@ -160,6 +160,11 @@
         <li><b>Fri–Sat:</b> all of the Mon–Thu options, plus 1:00 PM–10:00 PM.</li>
       </ul>
       <p class="small">Generate picks the earliest of these that fits the person's actual availability that day. Day cells show the break right in the label, e.g. "8:00 AM–5:00 PM (8h +1h break)". Manually editing one of these cells shows an <b>Unpaid Break</b> field too, so you can add or adjust a break on a manual edit the same way.</p>
+      <h3>Manager coverage — always a manager on, always a manager closing</h3>
+      <p>Managers (Joshua, Andrea, Jasmine Davis) don't just pick any shift menu time independently — Generate coordinates the three of them so the store always has manager coverage: <b>Sunday through Friday, exactly 2 managers are on</b> (one opening, one closing), and <b>Saturday has all 3</b> (opener, mid-shift, closer). Managers can and do overlap — that's intentional, not a mistake. Each manager's cell shows their role that day ("Opening" / "Mid-shift" / "Closing") right under the time.</p>
+      <p>Since each manager is capped at 40 hrs/8-hr days = 5 days/week, this works out to everyone working every Saturday, plus 4 of the other 6 days — so each manager gets exactly 2 days off, always on a Sun–Fri day, never two managers off on the same day, and never on Saturday. Whose 2 days off fall where rotates by week so it's not always the same person missing the same days. The <b>Coverage Summary</b> at the bottom of the Schedule tab has a <b>Manager Coverage</b> row for every day — it shows "✓ Full" plus who's closing, or flags "⚠ Gap" / "✗ None" if staffing, time-off, or a manual edit ever breaks the guarantee, so a problem is always visible rather than silent.</p>
+      <h3>Color-coded roles &amp; list order</h3>
+      <p>The Staff Roster and Schedule tables both show a colored <b>Role</b> badge per person — <span style="background:#dcfce7;color:#166534;font-weight:700;padding:1px 7px;border-radius:20px;">Manager</span> <span style="background:#fce7f3;color:#9d174d;font-weight:700;padding:1px 7px;border-radius:20px;">Visual</span> <span style="background:#dbeafe;color:#1e40af;font-weight:700;padding:1px 7px;border-radius:20px;">Full-Time</span> <span style="background:#f3f4f6;color:#4b5563;font-weight:700;padding:1px 7px;border-radius:20px;">Staff</span> — plus a matching colored stripe on the Name cell. Both tables (and the CSV export, and Week History detail view) list Managers first, then Visuals, then other full-timers, then everyone else, so the people running the store are always at the top of the list.</p>
       <h3>Saving your work &amp; using it on another computer</h3>
       <p>Every change you make (editing an employee, generating a week, adding time-off, etc.) saves itself automatically to this browser on this computer — there's no extra "save" step. It also sends that same save up to the cloud in the background; watch the little <b>☁</b> status text next to the "Saved on this device" note, top right, to see whether that last sync went through.</p>
       <p>Because of that cloud save, opening this page on a <i>different</i> computer or phone will automatically load the latest version — whatever was last saved from any device — the moment the page loads or you refresh it. It's not instant/live while you're both looking at it at the same time, just current as of your last refresh. If the cloud can't be reached for some reason, the app just falls back to the last version saved on that device, so it never breaks — it'll simply say "☁ Offline" instead of "☁ Synced."</p>
@@ -477,10 +482,10 @@ function renderHistoryDetail(data){
   document.getElementById("historyDetailTitle").textContent =
     data.weekLabel + (week.startDate ? " — starting "+week.startDate : "") + " · generated " + new Date(data.generatedAt).toLocaleString();
   const tbl = document.getElementById("historyDetailTable");
-  let html = "<tr><th class='leftalign'>Name</th><th class='leftalign'>Job Title</th>"
+  let html = "<tr><th class='leftalign'>Name</th><th class='leftalign'>Job Title</th><th>Role</th>"
     + DAY_NAMES.map((d,i)=>`<th>${d}${week.startDate? " "+fmtDate(addDaysISO(week.startDate,i)) : ""}</th>`).join("")
     + "<th>Weekly Hours</th></tr>";
-  emps.forEach(e=>{
+  sortedForDisplay(emps).forEach(e=>{
     const sched = (week.schedule && week.schedule[e.uid]) || [null,null,null,null,null,null,null];
     let total = 0;
     const cells = sched.map(s=>{
@@ -489,7 +494,8 @@ function renderHistoryDetail(data){
       const brk = s.unpaidBreak ? ` <span class="small" style="color:#9ca3af;">(+${s.unpaidBreak%1===0?s.unpaidBreak:s.unpaidBreak.toFixed(1)}h brk)</span>` : "";
       return `<td>${floatToHHMM(s.start)}-${floatToHHMM(s.end)}${brk}</td>`;
     }).join("");
-    html += `<tr><td class="leftalign"><b>${esc(e.name)}</b></td><td class="leftalign">${esc(e.title)}</td>${cells}<td><b>${total%1===0?total:total.toFixed(1)}</b></td></tr>`;
+    const r = roleInfo(e);
+    html += `<tr><td class="leftalign" style="border-left:4px solid ${r.fg};"><b>${esc(e.name)}</b></td><td class="leftalign">${esc(e.title)}</td><td>${roleBadge(e)}</td>${cells}<td><b>${total%1===0?total:total.toFixed(1)}</b></td></tr>`;
   });
   tbl.innerHTML = html;
   const card = document.getElementById("historyDetailCard");
@@ -770,30 +776,102 @@ function assignEmployeeWaterfill(emp, week, windows, manualArr, personalCap){
   return used;
 }
 
-// Picks which days a "flex" required-role employee (fully/near-fully available, needs the algorithm to
-// choose their 2 days off) actually works this week. Managers (title contains "MGR") rotate who gets the
-// full weekend (Sat+Sun) off from week to week; the other managers work the weekend and take 2 weekdays
-// off instead, staggered so they don't both take the same weekdays. Non-manager flex roles (e.g. a
-// Visual) default to a fixed Sun+Mon off, which — given store hours — lands them on a clean 5x8=40.
-function pickFlexRequiredWorkDays(emp, availableDays, isManager, flexManagers, weekendOffMgrUid){
-  let workDays;
-  if(isManager){
-    if(emp.uid === weekendOffMgrUid){
-      workDays = availableDays.filter(d=>d!==0 && d!==6); // off Sun+Sat, works the 5 weekdays
-    } else {
-      const others = flexManagers.filter(m=>m.uid!==weekendOffMgrUid);
-      const idx = Math.max(0, others.findIndex(m=>m.uid===emp.uid));
-      const weekdayOffPairs = [[1,2],[3,4],[1,3],[2,4],[1,4],[2,3]];
-      const offPair = weekdayOffPairs[idx % weekdayOffPairs.length];
-      workDays = availableDays.filter(d=>!offPair.includes(d));
-    }
-  } else {
-    workDays = availableDays.filter(d=>d!==0 && d!==1); // off Sun+Mon by default
-  }
+// Picks which days a non-manager "flex" fixed-hours employee (fully/near-fully available, needs the
+// algorithm to choose their 2 days off) actually works this week. Defaults to a fixed Sun+Mon off, which
+// — given store hours — lands them on a clean 5x8=40. (Managers have their own dedicated coverage-aware
+// rotation now — see assignManagerCoverage() — since their days off also have to keep the store covered.)
+function pickFlexRequiredWorkDays(emp, availableDays){
+  const workDays = availableDays.filter(d=>d!==0 && d!==1); // off Sun+Mon by default
   return workDays.length > 5 ? workDays.slice(0,5) : workDays;
 }
 
-// Whole-week generation, budget-aware, with two hard scheduling rules layered on top of availability/
+// Manager coverage (2026-08-25): Sun-Fri always has exactly 2 managers on (one opening, one closing);
+// Saturday always has all 3 (opener, mid-shift, closer). With 3 managers each capped at 40hrs/8h-day =
+// 5 days/week, that works out to: everyone works every Saturday, plus 4 of the other 6 days — i.e. each
+// manager gets exactly 2 days off, both from Sun-Fri, staggered so exactly one manager is off on any
+// given Sun-Fri day (never Saturday). Which manager gets which off-pair rotates by week for fairness.
+// Falls back gracefully (fewer/no managers that day) if time-off or availability limits who can work —
+// the coverage guarantee is "best effort given who's actually available", not an absolute promise.
+const MANAGER_OFF_PAIRS = [[0,1],[2,3],[4,5]]; // {Sun,Mon}, {Tue,Wed}, {Thu,Fri}
+function assignManagerCoverage(week, weekIndex, managerEmps, windowsByEmp, manualUsedByEmp, budgetRemaining){
+  if(!managerEmps.length) return budgetRemaining;
+  const offPairForEmp = {};
+  const maxDaysByEmp = {};
+  const daysAssignedByEmp = {};
+  managerEmps.forEach((emp,i)=>{
+    offPairForEmp[emp.uid] = MANAGER_OFF_PAIRS[(i+weekIndex) % MANAGER_OFF_PAIRS.length];
+    const remaining = Math.max(0, emp.cap - manualUsedByEmp[emp.uid]);
+    maxDaysByEmp[emp.uid] = Math.floor(remaining/emp.fixedDailyHours + 1e-9);
+    daysAssignedByEmp[emp.uid] = 0;
+  });
+
+  [0,1,2,3,4,5,6].forEach(d=>{
+    let working = managerEmps.filter(emp=>{
+      if(week.manual[emp.uid][d]) return false; // manual edits are never touched
+      if(windowsByEmp[emp.uid][d] === null) return false; // unavailable / time off today
+      if(daysAssignedByEmp[emp.uid] >= maxDaysByEmp[emp.uid]) return false; // already at their weekly cap
+      const pair = offPairForEmp[emp.uid];
+      return d === 6 || !pair.includes(d); // Saturday: everyone's on; else on unless today's their off-pair
+    });
+    if(!working.length) return;
+
+    const menu = FIXED_SHIFT_STARTS[d] || [];
+    const candidatesByEmp = {};
+    working.forEach(emp=>{
+      const win = windowsByEmp[emp.uid][d];
+      candidatesByEmp[emp.uid] = menu.filter(startH => startH >= win.start-1e-9 && (startH+FIXED_SHIFT_SPAN_HOURS) <= win.end+1e-9);
+    });
+    working = working.filter(emp=>candidatesByEmp[emp.uid].length);
+    if(!working.length) return;
+
+    const assign = {}; // uid -> {start, role}
+    if(working.length === 1){
+      const emp = working[0];
+      const cands = candidatesByEmp[emp.uid];
+      assign[emp.uid] = {start:cands[cands.length-1], role:"close"}; // sole manager on: prioritize closing
+    } else {
+      // Opener = earliest menu start any working manager can take; closer = latest. Try every distinct
+      // pair and prefer the one that actually lands on the day's true earliest/latest menu options.
+      let best = null;
+      working.forEach(opener=>{
+        working.forEach(closer=>{
+          if(opener.uid===closer.uid) return;
+          const oc = candidatesByEmp[opener.uid], cc = candidatesByEmp[closer.uid];
+          const openStart = oc[0], closeStart = cc[cc.length-1];
+          if(closeStart < openStart) return;
+          const gapFree = closeStart <= openStart + FIXED_SHIFT_SPAN_HOURS + 1e-9;
+          const score = (gapFree?100:0) + (openStart===menu[0]?1:0) + (closeStart===menu[menu.length-1]?1:0);
+          if(!best || score>best.score) best = {opener,closer,openStart,closeStart,score};
+        });
+      });
+      if(best){
+        assign[best.opener.uid] = {start:best.openStart, role:"open"};
+        assign[best.closer.uid] = {start:best.closeStart, role:"close"};
+        working.filter(e=>e.uid!==best.opener.uid && e.uid!==best.closer.uid).forEach(emp=>{
+          const cands = candidatesByEmp[emp.uid];
+          assign[emp.uid] = {start:cands[Math.floor(cands.length/2)], role:"mid"}; // mid-shift, splits the gap
+        });
+      } else {
+        working.forEach(emp=>{ assign[emp.uid] = {start:candidatesByEmp[emp.uid][0], role:null}; });
+      }
+    }
+
+    working.forEach(emp=>{
+      const pick = assign[emp.uid];
+      if(!pick) return;
+      const worked = FIXED_SHIFT_SPAN_HOURS - FIXED_SHIFT_BREAK_HOURS;
+      const take = Math.min(worked, budgetRemaining);
+      if(take>0){
+        week.schedule[emp.uid][d] = {start:pick.start, end:pick.start+FIXED_SHIFT_BREAK_HOURS+take, unpaidBreak:FIXED_SHIFT_BREAK_HOURS, shiftRole:pick.role};
+        budgetRemaining -= take;
+        daysAssignedByEmp[emp.uid] += 1;
+      }
+    });
+  });
+  return budgetRemaining;
+}
+
+// Whole-week generation, budget-aware, with three hard scheduling rules layered on top of availability/
 // store hours/time-off:
 //  1. Any employee with a Hours/Day value set in the Staff Roster (emp.fixedDailyHours — e.g. 8 for a
 //     full-timer, 4 for someone who always works a short shift) works that many hours on every day
@@ -802,13 +880,16 @@ function pickFlexRequiredWorkDays(emp, availableDays, isManager, flexManagers, w
 //     rate (day COUNT shrinks first, the daily hours themselves never do, except when the shared budget
 //     below runs short). Anyone already naturally restricted to <=5 available days (like a fixed weekly
 //     day off) just works all of those days at their fixed rate; anyone fully available gets 2 days off
-//     chosen by pickFlexRequiredWorkDays (managers rotate the weekend, others default to Sun+Mon off).
+//     chosen by pickFlexRequiredWorkDays (Sun+Mon by default).
 //  2. Nobody on the whole staff works more than 5 days a week (2+ days off). Employees with no
 //     Hours/Day set keep their existing flexible/waterfilled shift lengths, just restricted to at most
 //     their 5 longest-window active days instead of every day they're available.
-// Fixed-hours employees are filled first (in roster order) out of the week's shared Total Hours Budget;
-// whatever is left goes to everyone else. Manually-edited cells are always left alone, but their hours
-// are subtracted from the shared budget before any auto-fill happens.
+//  3. Managers (title contains "MGR") are covered every day: Sun-Fri always has exactly 2 on (an opener
+//     + a closer), Saturday always has all 3 (opener + mid-shift + closer) — see assignManagerCoverage().
+//     Whoever's shift ends latest each day is always a manager, so there's always a manager closing.
+// Managers are filled first out of the week's shared Total Hours Budget, then other fixed-hours employees
+// (in roster order), then everyone else. Manually-edited cells are always left alone, but their hours are
+// subtracted from the shared budget before any auto-fill happens.
 function generateWeek(weekId){
   const week = getWeek(weekId);
   if(typeof week.budgetHours !== "number" || week.budgetHours <= 0) return; // caller must validate first
@@ -849,16 +930,15 @@ function generateWeek(weekId){
     windowsByEmp[emp.uid] = [0,1,2,3,4,5,6].map(d=>computeDayWindow(emp,d,timeOffSet));
   });
 
-  // Figure out which fixed-hours employees actually need the flex-days-off treatment (fully/near-fully
-  // available), and which manager, if any, is up for the full weekend off this week.
-  const flexManagers = fixedEmps.filter(emp=>{
-    const manualArr = week.manual[emp.uid];
-    const avail = [0,1,2,3,4,5,6].filter(d=>windowsByEmp[emp.uid][d]!==null && !manualArr[d]);
-    return avail.length > 5 && /MGR/i.test(emp.title);
-  });
-  const weekendOffMgrUid = flexManagers.length ? flexManagers[weekIndex % flexManagers.length].uid : null;
+  // Managers get a dedicated coverage-aware pass first (see assignManagerCoverage): Sun-Fri always ends
+  // up with exactly 2 managers on (opener + closer), Saturday with all 3 (opener + mid + closer). This
+  // runs before everyone else so managers are filled first out of the shared budget, same priority full-
+  // timers have always had.
+  const managerEmps = fixedEmps.filter(e=>/MGR/i.test(e.title));
+  const nonManagerFixedEmps = fixedEmps.filter(e=>!/MGR/i.test(e.title));
+  budgetRemaining = assignManagerCoverage(week, weekIndex, managerEmps, windowsByEmp, manualUsedByEmp, budgetRemaining);
 
-  fixedEmps.forEach(emp=>{
+  nonManagerFixedEmps.forEach(emp=>{
     const windows = windowsByEmp[emp.uid];
     const manualArr = week.manual[emp.uid];
     const schedArr = week.schedule[emp.uid];
@@ -868,7 +948,7 @@ function generateWeek(weekId){
     if(availableDays.length <= 5){
       workDays = availableDays; // already naturally restricted (their own set days off) — use them all
     } else {
-      workDays = pickFlexRequiredWorkDays(emp, availableDays, /MGR/i.test(emp.title), flexManagers, weekendOffMgrUid);
+      workDays = pickFlexRequiredWorkDays(emp, availableDays);
     }
 
     // Never schedule more days than this employee's own Weekly Target/Max Hrs can support at their fixed
@@ -970,8 +1050,8 @@ document.querySelectorAll("nav button").forEach(btn=>{
 /* ===================== RENDER: ROSTER ===================== */
 function renderRoster(){
   const tbl = document.getElementById("rosterTable");
-  let html = "<tr><th class='leftalign'>Name</th><th class='leftalign'>Job Title</th><th>Type</th><th>Min Hrs</th><th>Target/Max</th><th>Hrs/Day</th><th class='leftalign'>Availability Summary</th><th>Actions</th></tr>";
-  state.employees.forEach(e=>{
+  let html = "<tr><th class='leftalign'>Name</th><th class='leftalign'>Job Title</th><th>Role</th><th>Type</th><th>Min Hrs</th><th>Target/Max</th><th>Hrs/Day</th><th class='leftalign'>Availability Summary</th><th>Actions</th></tr>";
+  sortedForDisplay(state.employees).forEach(e=>{
     const summary = e.availability.map((a,i)=>{
       if(a.mode==="off") return null;
       if(a.mode==="full") return DAY_NAMES[i];
@@ -979,9 +1059,11 @@ function renderRoster(){
     }).filter(Boolean).join(", ");
     const fixedDisplay = (typeof e.fixedDailyHours==="number" && e.fixedDailyHours>0)
       ? `<b>${e.fixedDailyHours}</b>` : `<span class="small" style="color:#94a3b8;">Flexible</span>`;
+    const r = roleInfo(e);
     html += `<tr>
-      <td class="leftalign"><b>${esc(e.name)}</b></td>
+      <td class="leftalign" style="border-left:4px solid ${r.fg};"><b>${esc(e.name)}</b></td>
       <td class="leftalign">${esc(e.title)}</td>
+      <td>${roleBadge(e)}</td>
       <td>${e.type}</td>
       <td>${e.minHrs}</td>
       <td>${e.cap}</td>
@@ -1003,6 +1085,33 @@ function renderRoster(){
   }));
 }
 function esc(s){ return (s||"").replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ===================== ROLE COLOR-CODING & DISPLAY ORDER (2026-08-25) ===================== */
+// Managers, then other full-timers (Hours/Day set but not a manager), then Visuals, then everyone else.
+// This only affects display order in the Roster/Schedule tables — the underlying state.employees array
+// (and the roster-order budget-filling priority that depends on it) is left untouched.
+function displayRank(e){
+  if(/MGR/i.test(e.title)) return 0;
+  if(/VISUAL/i.test(e.title)) return 1;
+  if(typeof e.fixedDailyHours==="number" && e.fixedDailyHours>0) return 2;
+  return 3;
+}
+function sortedForDisplay(employees){
+  return employees.map((e,i)=>({e,i})).sort((a,b)=>{
+    const ra=displayRank(a.e), rb=displayRank(b.e);
+    return ra!==rb ? ra-rb : a.i-b.i; // stable within each group
+  }).map(x=>x.e);
+}
+function roleInfo(e){
+  if(/MGR/i.test(e.title)) return {label:"Manager", bg:"#dcfce7", fg:"#166534"};
+  if(/VISUAL/i.test(e.title)) return {label:"Visual", bg:"#fce7f3", fg:"#9d174d"};
+  if(typeof e.fixedDailyHours==="number" && e.fixedDailyHours>0) return {label:"Full-Time", bg:"#dbeafe", fg:"#1e40af"};
+  return {label:"Staff", bg:"#f3f4f6", fg:"#4b5563"};
+}
+function roleBadge(e){
+  const r = roleInfo(e);
+  return `<span class="small" style="background:${r.bg}; color:${r.fg}; font-weight:700; padding:1px 7px; border-radius:20px; white-space:nowrap;">${r.label}</span>`;
+}
 
 /* ---- employee modal ---- */
 let editingEmpUid = null;
@@ -1306,11 +1415,11 @@ function renderSchedule(){
   }
 
   const tbl = document.getElementById("scheduleTable");
-  let html = "<tr><th class='leftalign'>Name</th><th class='leftalign'>Job Title</th>";
+  let html = "<tr><th class='leftalign'>Name</th><th class='leftalign'>Job Title</th><th>Role</th>";
   DAY_NAMES.forEach((d,i)=>{ html += `<th>${d} ${fmtDate(addDaysISO(week.startDate,i))}</th>`; });
   html += "<th>Hrs</th><th>Min</th><th>Target</th><th>Status</th></tr>";
 
-  state.employees.forEach(e=>{
+  sortedForDisplay(state.employees).forEach(e=>{
     const sched = week.schedule[e.uid] || [null,null,null,null,null,null,null];
     const manual = week.manual[e.uid] || [false,false,false,false,false,false,false];
     const hrs = weeklyHours(week, e.uid);
@@ -1320,7 +1429,8 @@ function renderSchedule(){
       else if(hrs > e.cap + 1e-9) status = `<span class="pill pill-over">Over</span>`;
       else status = `<span class="pill pill-ok">OK</span>`;
     }
-    html += `<tr><td class="leftalign"><b>${esc(e.name)}</b></td><td class="leftalign">${esc(e.title)}</td>`;
+    const r = roleInfo(e);
+    html += `<tr><td class="leftalign" style="border-left:4px solid ${r.fg};"><b>${esc(e.name)}</b></td><td class="leftalign">${esc(e.title)}</td><td>${roleBadge(e)}</td>`;
     const toSet = toByEmp[e.uid] || new Set();
     DAY_NAMES.forEach((d,i)=>{
       const s = sched[i];
@@ -1335,7 +1445,9 @@ function renderSchedule(){
         const dayHrs = shiftWorkedHours(s);
         const dayHrsStr = dayHrs%1===0 ? dayHrs : dayHrs.toFixed(1);
         const breakNote = s.unpaidBreak ? " +"+(s.unpaidBreak%1===0?s.unpaidBreak:s.unpaidBreak.toFixed(1))+"h break" : "";
-        label = floatTo12h(s.start)+"–"+floatTo12h(s.end)+" <span class=\"small\" style=\"color:#6b7280;\">("+dayHrsStr+"h"+breakNote+")</span>";
+        const roleTags = {open:"Opening", mid:"Mid-shift", close:"Closing"};
+        const roleNote = s.shiftRole && roleTags[s.shiftRole] ? `<br><span class="small" style="color:#2563eb; font-weight:700;">${roleTags[s.shiftRole]}</span>` : "";
+        label = floatTo12h(s.start)+"–"+floatTo12h(s.end)+" <span class=\"small\" style=\"color:#6b7280;\">("+dayHrsStr+"h"+breakNote+")</span>"+roleNote;
       }
       html += `<td class="${cls.join(' ')}" data-emp="${e.uid}" data-day="${i}">${isConflict?'<span class="warn">⚠</span>':''}${label}</td>`;
     });
@@ -1354,20 +1466,60 @@ function renderSchedule(){
     week.label+" — "+DAY_NAMES.map((d,i)=>d+" "+fmtDate(addDaysISO(week.startDate,i))).join(" · ")+budgetSuffix;
 }
 
+// Checks manager coverage for one day: whether managers' combined shifts cover the store's full open-to-
+// close window with no gaps, and whether whoever's shift ends latest that day (the "closer") is a
+// manager. Used to visibly flag the coverage/closing guarantee from assignManagerCoverage() — including
+// when a manual edit breaks it, since that guarantee only ever applies to auto-generated days.
+function dayManagerCoverage(week, dayIdx){
+  const store = state.storeHours[dayIdx];
+  const openH = hhmmToFloat(store.open), closeH = hhmmToFloat(store.close);
+  let maxEnd = -Infinity, anyScheduled = false;
+  const mgrIntervals = [];
+  state.employees.forEach(e=>{
+    const s = week.schedule[e.uid][dayIdx];
+    if(!s) return;
+    anyScheduled = true;
+    if(s.end > maxEnd) maxEnd = s.end;
+    if(/MGR/i.test(e.title)) mgrIntervals.push({start:s.start, end:s.end, name:e.name});
+  });
+  let closingName = null;
+  if(anyScheduled){
+    const closer = mgrIntervals.find(iv=>Math.abs(iv.end-maxEnd)<1e-9);
+    if(closer) closingName = closer.name;
+  }
+  mgrIntervals.sort((a,b)=>a.start-b.start);
+  let cursor = openH, gap = mgrIntervals.length===0;
+  mgrIntervals.forEach(iv=>{
+    if(iv.start > cursor + 1e-9) gap = true;
+    cursor = Math.max(cursor, iv.end);
+  });
+  if(cursor < closeH - 1e-9) gap = true;
+  return {managerCount: mgrIntervals.length, fullCoverage: mgrIntervals.length>0 && !gap, closingName};
+}
+
 function renderCoverage(week){
   const tbl = document.getElementById("coverageTable");
   let staffRow = "<tr><th class='leftalign'>Staff Scheduled</th>";
   let hrsRow = "<tr><th class='leftalign'>Total Scheduled Hours</th>";
-  let mgrRow = "<tr><th class='leftalign'>Manager On Duty</th>";
+  let mgrRow = "<tr><th class='leftalign'>Manager Coverage</th>";
   DAY_NAMES.forEach((d,i)=>{
-    let count=0, hrs=0, mgr=false;
+    let count=0, hrs=0;
     state.employees.forEach(e=>{
       const s = week.schedule[e.uid][i];
-      if(s){ count++; hrs += shiftWorkedHours(s); if(/MGR/i.test(e.title)) mgr=true; }
+      if(s){ count++; hrs += shiftWorkedHours(s); }
     });
     staffRow += `<td>${count}</td>`;
     hrsRow += `<td>${hrs%1===0?hrs:hrs.toFixed(1)}</td>`;
-    mgrRow += `<td>${mgr?"Yes":"<span style='color:#dc2626;font-weight:700;'>No</span>"}</td>`;
+    const cov = dayManagerCoverage(week, i);
+    let mgrCell;
+    if(cov.managerCount===0){
+      mgrCell = `<span style="color:#dc2626;font-weight:700;">✗ None</span>`;
+    } else if(cov.fullCoverage && cov.closingName){
+      mgrCell = `<span style="color:#166534;font-weight:700;">✓ Full</span><br><span class="small">closes: ${esc(cov.closingName)}</span>`;
+    } else {
+      mgrCell = `<span style="color:#d97706;font-weight:700;">⚠ Gap</span>${cov.closingName? `<br><span class="small">closes: ${esc(cov.closingName)}</span>` : `<br><span class="small">no manager closing</span>`}`;
+    }
+    mgrRow += `<td>${mgrCell}</td>`;
   });
   const headRow = "<tr><th class='leftalign'></th>"+DAY_NAMES.map(d=>`<th>${d}</th>`).join("")+"</tr>";
   tbl.innerHTML = headRow+staffRow+"</tr>"+hrsRow+"</tr>"+mgrRow+"</tr>";
@@ -1441,7 +1593,7 @@ document.getElementById("btnExportCsv").addEventListener("click", ()=>{
     ...DAY_NAMES.map((d,i)=>d+" "+fmtDate(addDaysISO(week.startDate,i))),
     "Weekly Hours","Min Hrs","Target Hrs","Status"];
   const rows = [summaryRow, [], header];
-  state.employees.forEach(e=>{
+  sortedForDisplay(state.employees).forEach(e=>{
     const hrs = weeklyHours(week, e.uid);
     let status = hrs===0?"":(hrs<e.minHrs?"Under":(hrs>e.cap+1e-9?"Over":"OK"));
     const row = [e.name, e.title, e.type];
