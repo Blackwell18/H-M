@@ -148,8 +148,8 @@
       <p>The banner above the schedule grid always shows the running total vs. the budget, and turns red if it's ever over — including from manual edits, which are allowed but flagged rather than blocked.</p>
       <h3>Two more scheduling rules, always on</h3>
       <ul>
-        <li><b>Employees with an Hours/Day value work exactly that many hours on every day they're scheduled.</b> Set it per person in the Staff Roster — e.g. 8 for a full-timer, 4 for someone who always works a short shift. Leave it blank for anyone whose shift length should flex to fill their target instead (the old behavior). A day is only ever shortened below that value if the real window that day is smaller (e.g. Sunday's shorter store hours) or the shared Total Hours Budget runs out — it's never stretched longer. If someone's Hours/Day × available days would push them over their own Weekly Target/Max Hrs, Generate schedules them <i>fewer days</i> at the full Hours/Day amount rather than shortening their shifts. Anyone whose availability already limits them to 5 or fewer days just works all of those at their Hours/Day rate. Anyone fully available gets 2 days off chosen for them: managers (job title containing "MGR") rotate who gets the full weekend off from week to week (the others work the weekend and take 2 weekdays off instead, staggered between them), and everyone else with an Hours/Day value (like a Visual) defaults to Sunday+Monday off.</li>
-        <li><b>Nobody on staff works more than 5 days a week.</b> Everyone gets at least 2 days off, every week — Hours/Day employees per the rule above, and everyone else by capping Generate to their 5 longest-window available days instead of spreading thin across every day they're available.</li>
+        <li><b>Employees with an Hours/Day value work exactly that many hours on every day they're scheduled.</b> Set it per person in the Staff Roster — e.g. 8 for a full-timer, 4 for someone who always works a short shift. Leave it blank for anyone whose shift length should flex to fill their target instead (the old behavior). A day is only ever shortened below that value if the real window that day is smaller (e.g. Sunday's shorter store hours) or the shared Total Hours Budget runs out — it's never stretched longer. If someone's Hours/Day × available days would push them over their own Weekly Target/Max Hrs, Generate schedules them <i>fewer days</i> at the full Hours/Day amount rather than shortening their shifts. Anyone whose availability already limits them to 5 or fewer days just works all of those at their Hours/Day rate (this is how Mohamad and the managers get their pattern — see below). Anyone fully available gets 2 days off chosen for them: managers rotate their 2 days off week to week (see Manager coverage below), and everyone else with an Hours/Day value defaults to Saturday+Sunday off — currently that's just Tatiana, giving her Monday–Friday, 8:00 AM–5:00 PM every week.</li>
+        <li><b>Nobody on staff works more than 5 days a week.</b> Everyone gets at least 2 days off, every week — Hours/Day employees per the rule above, and everyone else by capping Generate to their 5 longest-window available days instead of spreading thin across every day they're available. <b>Part-time Sales Advisors never get a shift shorter than 3.5 hours</b> — if the waterfilled share for a day would land under that, Generate either rounds it up to 3.5 (when the day's window and remaining budget allow) or drops that day for them entirely rather than leaving a too-short shift on the schedule.</li>
       </ul>
       <p class="small">Both rules only govern what <b>Generate</b> does automatically. Manual edits can still override them on individual cells if you need an exception — those cells just won't be touched by Generate afterward.</p>
       <h3>Full-timer fixed shift menu (Joshua, Mohamad, Tatiana, Andrea, Jasmine Davis)</h3>
@@ -159,10 +159,14 @@
         <li><b>Mon–Thu:</b> 8:00–5:00, 9:00–6:00, 10:00–7:00, 11:00–8:00, or 12:00–9:00.</li>
         <li><b>Fri–Sat:</b> all of the Mon–Thu options, plus 1:00 PM–10:00 PM.</li>
       </ul>
-      <p class="small">Generate picks the earliest of these that fits the person's actual availability that day. Day cells show the break right in the label, e.g. "8:00 AM–5:00 PM (8h +1h break)". Manually editing one of these cells shows an <b>Unpaid Break</b> field too, so you can add or adjust a break on a manual edit the same way.</p>
+      <p class="small">Generate picks the earliest of these that fits the person's actual availability that day. Day cells show the break right in the label, e.g. "8:00 AM–5:00 PM (8h +1h break)". Manually editing one of these cells shows an <b>Unpaid Break</b> field too, so you can add or adjust a break on a manual edit the same way. Mohamad's cells also pick the <i>latest</i>-fitting option on his designated closing days — see below.</p>
       <h3>Manager coverage — always a manager on, always a manager closing</h3>
       <p>Managers (Joshua, Andrea, Jasmine Davis) don't just pick any shift menu time independently — Generate coordinates the three of them so the store always has manager coverage: <b>Sunday through Friday, exactly 2 managers are on</b> (one opening, one closing), and <b>Saturday has all 3</b> (opener, mid-shift, closer). Managers can and do overlap — that's intentional, not a mistake. Each manager's cell shows their role that day ("Opening" / "Mid-shift" / "Closing") right under the time.</p>
-      <p>Since each manager is capped at 40 hrs/8-hr days = 5 days/week, this works out to everyone working every Saturday, plus 4 of the other 6 days — so each manager gets exactly 2 days off, always on a Sun–Fri day, never two managers off on the same day, and never on Saturday. Whose 2 days off fall where rotates by week so it's not always the same person missing the same days. The <b>Coverage Summary</b> at the bottom of the Schedule tab has a <b>Manager Coverage</b> row for every day — it shows "✓ Full" plus who's closing, or flags "⚠ Gap" / "✗ None" if staffing, time-off, or a manual edit ever breaks the guarantee, so a problem is always visible rather than silent.</p>
+      <p>Since each manager is capped at 40 hrs/8-hr days = 5 days/week, this works out to everyone working every Saturday, plus 4 of the other 6 days — so each manager gets exactly 2 days off, always on a Sun–Fri day, never two managers off on the same day, and never on Saturday. Whose 2 days off fall where rotates by week so it's not always the same person missing the same days.</p>
+      <p>Who closes each night follows a deliberate split rather than falling to whoever happens to be scheduled first: <b>Jasmine Davis (Store Manager) closes exactly 2 nights a week</b>, and <b>Joshua and Andrea (Department Managers) split the week's other closing nights between them</b>, balanced night-to-night so it alternates rather than one of them getting stuck with most of the closes. The one rule that always wins over that balance: <b>nobody closes more than 2 nights in a row</b> — if the usual pick would make it a 3rd consecutive closing night for someone, the close goes to whichever other manager is on shift that day instead.</p>
+      <p>The <b>Coverage Summary</b> at the bottom of the Schedule tab has a <b>Manager Coverage</b> row for every day — it shows "✓ Full" plus who's closing, or flags "⚠ Gap" / "✗ None" if staffing, time-off, or a manual edit ever breaks the guarantee, so a problem is always visible rather than silent.</p>
+      <h3>Mohamad's closing shifts</h3>
+      <p>As the FT Sales Advisor, Mohamad can work any shift on the menu, but always gets up to 3 closing shifts spread across his week (never back-to-back) rather than being clustered together — his cells show "Closing" the same way a manager's do on those days.</p>
       <h3>Color-coded roles &amp; list order</h3>
       <p>The Staff Roster and Schedule tables both show a colored <b>Role</b> badge per person — <span style="background:#dcfce7;color:#166534;font-weight:700;padding:1px 7px;border-radius:20px;">Manager</span> <span style="background:#fce7f3;color:#9d174d;font-weight:700;padding:1px 7px;border-radius:20px;">Visual</span> <span style="background:#dbeafe;color:#1e40af;font-weight:700;padding:1px 7px;border-radius:20px;">Full-Time</span> <span style="background:#f3f4f6;color:#4b5563;font-weight:700;padding:1px 7px;border-radius:20px;">Staff</span> — plus a matching colored stripe on the Name cell. Both tables (and the CSV export, and Week History detail view) list Managers first, then Visuals, then other full-timers, then everyone else, so the people running the store are always at the top of the list.</p>
       <h3>Saving your work &amp; using it on another computer</h3>
@@ -612,15 +616,16 @@ const FIXED_SHIFT_STARTS = {
   5:[8,9,10,11,12,13],   // Fri — adds the 1:00-10:00 option
   6:[8,9,10,11,12,13]    // Sat — adds the 1:00-10:00 option
 };
-// Picks the earliest menu start time (for this day of week) whose full 9-hour span fits inside the
-// employee's actual available window that day. Returns null if nothing on the menu fits, so the caller
-// can fall back to the old flexible-clip behavior rather than silently dropping the day.
-function pickFixedShiftStart(dayIdx, window){
+// Picks a menu start time (for this day of week) whose full 9-hour span fits inside the employee's
+// actual available window that day — the earliest fitting option by default, or the latest fitting
+// option when preferLatest is true (used for employees who need some of their days to end at close).
+// Returns null if nothing on the menu fits, so the caller can fall back to the old flexible-clip
+// behavior rather than silently dropping the day.
+function pickFixedShiftStart(dayIdx, window, preferLatest){
   const menu = FIXED_SHIFT_STARTS[dayIdx] || [];
-  for(const startH of menu){
-    if(startH >= window.start - 1e-9 && (startH + FIXED_SHIFT_SPAN_HOURS) <= window.end + 1e-9) return startH;
-  }
-  return null;
+  const fits = menu.filter(startH => startH >= window.start - 1e-9 && (startH + FIXED_SHIFT_SPAN_HOURS) <= window.end + 1e-9);
+  if(!fits.length) return null;
+  return preferLatest ? fits[fits.length-1] : fits[0];
 }
 
 function buildSeedState(){
@@ -739,10 +744,19 @@ function computeDayWindow(emp, dayIdx, timeOffSet){
   return {kind:"explicit", start:best.start, end:best.end};
 }
 
+// Part-time Sales Advisors (2026-08-25): no shift should ever be shorter than this, so a tiny leftover
+// sliver of budget doesn't turn into a near-pointless 1-hour shift.
+const PT_MIN_SHIFT_HOURS = 3.5;
+function isPTSalesAdvisor(emp){ return emp.type==="PT" && /SALES ADVISOR/i.test(emp.title); }
+
 // Distributes `personalCap` hours across one employee's active (non-manual, available) days for the
 // given week, using the same waterfill approach as before (spread evenly, clipped to 8h/day and to
-// each day's real window). Returns the total hours actually assigned.
-function assignEmployeeWaterfill(emp, week, windows, manualArr, personalCap){
+// each day's real window). If minShiftHours is set, any day whose waterfilled share would land under
+// that floor either gets bumped up to the floor (when the day's window and remaining budget allow it)
+// or is dropped entirely (schedArr[d]=null) rather than leaving a too-short shift. Returns the total
+// hours actually assigned.
+function assignEmployeeWaterfill(emp, week, windows, manualArr, personalCap, minShiftHours){
+  minShiftHours = minShiftHours || 0;
   const schedArr = week.schedule[emp.uid];
   const activeDays = [0,1,2,3,4,5,6].filter(d=>windows[d]!==null && !manualArr[d]);
   let remainingCap = Math.max(0, personalCap);
@@ -755,6 +769,9 @@ function assignEmployeeWaterfill(emp, week, windows, manualArr, personalCap){
     let take = Math.min(target, maxFeas, remainingCap);
     take = roundHalf(take);
     take = Math.min(take, maxFeas, remainingCap);
+    if(minShiftHours>0 && take>0 && take<minShiftHours){
+      take = (maxFeas>=minShiftHours-1e-9 && remainingCap>=minShiftHours-1e-9) ? minShiftHours : 0;
+    }
     if(take>0){
       let s;
       if(kind==="full"){
@@ -777,19 +794,31 @@ function assignEmployeeWaterfill(emp, week, windows, manualArr, personalCap){
 }
 
 // Picks which days a non-manager "flex" fixed-hours employee (fully/near-fully available, needs the
-// algorithm to choose their 2 days off) actually works this week. Defaults to a fixed Sun+Mon off, which
-// — given store hours — lands them on a clean 5x8=40. (Managers have their own dedicated coverage-aware
-// rotation now — see assignManagerCoverage() — since their days off also have to keep the store covered.)
+// algorithm to choose their 2 days off) actually works this week. Defaults to Sat+Sun off, i.e. a clean
+// Mon-Fri 5x8=40 — currently this only affects Tatiana, per her requested Mon-Fri 8am-5pm schedule.
+// (Managers have their own dedicated coverage-aware rotation now — see assignManagerCoverage() — since
+// their days off also have to keep the store covered.)
 function pickFlexRequiredWorkDays(emp, availableDays){
-  const workDays = availableDays.filter(d=>d!==0 && d!==1); // off Sun+Mon by default
+  const workDays = availableDays.filter(d=>d!==0 && d!==6); // off Sat+Sun by default
   return workDays.length > 5 ? workDays.slice(0,5) : workDays;
 }
 
-// Manager coverage (2026-08-25): Sun-Fri always has exactly 2 managers on (one opening, one closing);
-// Saturday always has all 3 (opener, mid-shift, closer). With 3 managers each capped at 40hrs/8h-day =
-// 5 days/week, that works out to: everyone works every Saturday, plus 4 of the other 6 days — i.e. each
-// manager gets exactly 2 days off, both from Sun-Fri, staggered so exactly one manager is off on any
-// given Sun-Fri day (never Saturday). Which manager gets which off-pair rotates by week for fairness.
+// Manager coverage (2026-08-25, revised): Sun-Fri always has exactly 2 managers on (one opening, one
+// closing); Saturday always has all 3 (opener, mid-shift, closer). With 3 managers each capped at
+// 40hrs/8h-day = 5 days/week, that works out to: everyone works every Saturday, plus 4 of the other 6
+// days — i.e. each manager gets exactly 2 days off, both from Sun-Fri, staggered so exactly one manager
+// is off on any given Sun-Fri day (never Saturday). Which manager gets which off-pair rotates by week.
+//
+// Who closes which night is deliberately NOT left to incidental array order (that used to make one
+// Dept Manager close every time). Instead:
+//  - The Store Manager (title contains "STORE MGR") closes exactly 2 nights every week — her
+//    chronologically-last 2 working days, so it naturally falls at the tail end of her week.
+//  - The Department Managers split the week's remaining closer-slots (whatever's left of the 7 total
+//    after the Store Manager's 2 — typically 5, split roughly evenly like 3/2, alternating who gets the
+//    extra week to week) between them, balanced night-by-night by whoever has closed fewer times so far
+//    that week.
+//  - Nobody ever closes 3 nights in a row: if giving today's close to the manager who's "due" for it
+//    would be their 3rd consecutive closing night, the other available manager takes it instead.
 // Falls back gracefully (fewer/no managers that day) if time-off or availability limits who can work —
 // the coverage guarantee is "best effort given who's actually available", not an absolute promise.
 const MANAGER_OFF_PAIRS = [[0,1],[2,3],[4,5]]; // {Sun,Mon}, {Tue,Wed}, {Thu,Fri}
@@ -798,21 +827,38 @@ function assignManagerCoverage(week, weekIndex, managerEmps, windowsByEmp, manua
   const offPairForEmp = {};
   const maxDaysByEmp = {};
   const daysAssignedByEmp = {};
+  const closeCountByEmp = {};
+  const lastCloseDay = {};
+  const consecCloses = {};
   managerEmps.forEach((emp,i)=>{
     offPairForEmp[emp.uid] = MANAGER_OFF_PAIRS[(i+weekIndex) % MANAGER_OFF_PAIRS.length];
     const remaining = Math.max(0, emp.cap - manualUsedByEmp[emp.uid]);
     maxDaysByEmp[emp.uid] = Math.floor(remaining/emp.fixedDailyHours + 1e-9);
     daysAssignedByEmp[emp.uid] = 0;
+    closeCountByEmp[emp.uid] = 0;
+    lastCloseDay[emp.uid] = null;
+    consecCloses[emp.uid] = 0;
   });
 
+  function eligibleDay(emp,d){
+    if(week.manual[emp.uid][d]) return false; // manual edits are never touched
+    if(windowsByEmp[emp.uid][d] === null) return false; // unavailable / time off today
+    const pair = offPairForEmp[emp.uid];
+    return d === 6 || !pair.includes(d); // Saturday: everyone's on; else on unless today's their off-pair
+  }
+
+  const storeManager = managerEmps.find(e=>/STORE\s*MGR/i.test(e.title));
+  const deptManagers = managerEmps.filter(e=>e!==storeManager);
+
+  // Plan the Store Manager's exactly-2 close nights up front: her chronologically-last 2 working days.
+  const storeMgrCloseDays = new Set();
+  if(storeManager){
+    const workDays = [0,1,2,3,4,5,6].filter(d=>eligibleDay(storeManager,d));
+    workDays.slice(-2).forEach(d=>storeMgrCloseDays.add(d));
+  }
+
   [0,1,2,3,4,5,6].forEach(d=>{
-    let working = managerEmps.filter(emp=>{
-      if(week.manual[emp.uid][d]) return false; // manual edits are never touched
-      if(windowsByEmp[emp.uid][d] === null) return false; // unavailable / time off today
-      if(daysAssignedByEmp[emp.uid] >= maxDaysByEmp[emp.uid]) return false; // already at their weekly cap
-      const pair = offPairForEmp[emp.uid];
-      return d === 6 || !pair.includes(d); // Saturday: everyone's on; else on unless today's their off-pair
-    });
+    let working = managerEmps.filter(emp=>eligibleDay(emp,d) && daysAssignedByEmp[emp.uid] < maxDaysByEmp[emp.uid]);
     if(!working.length) return;
 
     const menu = FIXED_SHIFT_STARTS[d] || [];
@@ -824,36 +870,52 @@ function assignManagerCoverage(week, weekIndex, managerEmps, windowsByEmp, manua
     working = working.filter(emp=>candidatesByEmp[emp.uid].length);
     if(!working.length) return;
 
-    const assign = {}; // uid -> {start, role}
+    // Decide who closes today. The "no 3 nights in a row" rule always wins over the usual preference
+    // order below — if the preferred pick would make it a 3rd consecutive close for them, we fall
+    // through to the next option (which can even mean the Store Manager closing on an "unplanned" day)
+    // before finally allowing the violation as a last resort (only possible if nobody else is on shift).
+    let closer;
     if(working.length === 1){
-      const emp = working[0];
-      const cands = candidatesByEmp[emp.uid];
-      assign[emp.uid] = {start:cands[cands.length-1], role:"close"}; // sole manager on: prioritize closing
+      closer = working[0]; // sole manager on: they close by default
     } else {
-      // Opener = earliest menu start any working manager can take; closer = latest. Try every distinct
-      // pair and prefer the one that actually lands on the day's true earliest/latest menu options.
-      let best = null;
-      working.forEach(opener=>{
-        working.forEach(closer=>{
-          if(opener.uid===closer.uid) return;
-          const oc = candidatesByEmp[opener.uid], cc = candidatesByEmp[closer.uid];
-          const openStart = oc[0], closeStart = cc[cc.length-1];
-          if(closeStart < openStart) return;
-          const gapFree = closeStart <= openStart + FIXED_SHIFT_SPAN_HOURS + 1e-9;
-          const score = (gapFree?100:0) + (openStart===menu[0]?1:0) + (closeStart===menu[menu.length-1]?1:0);
-          if(!best || score>best.score) best = {opener,closer,openStart,closeStart,score};
-        });
+      const smToday = storeManager && working.find(e=>e.uid===storeManager.uid);
+      const deptCandidates = working.filter(e=>deptManagers.includes(e));
+      const rankedDept = deptCandidates.slice().sort((a,b)=>{
+        const diff = closeCountByEmp[a.uid]-closeCountByEmp[b.uid];
+        if(diff!==0) return diff; // fewer closes so far goes first
+        return ((deptManagers.indexOf(a)+weekIndex)%2) - ((deptManagers.indexOf(b)+weekIndex)%2);
       });
-      if(best){
-        assign[best.opener.uid] = {start:best.openStart, role:"open"};
-        assign[best.closer.uid] = {start:best.closeStart, role:"close"};
-        working.filter(e=>e.uid!==best.opener.uid && e.uid!==best.closer.uid).forEach(emp=>{
-          const cands = candidatesByEmp[emp.uid];
-          assign[emp.uid] = {start:cands[Math.floor(cands.length/2)], role:"mid"}; // mid-shift, splits the gap
-        });
-      } else {
-        working.forEach(emp=>{ assign[emp.uid] = {start:candidatesByEmp[emp.uid][0], role:null}; });
-      }
+      const priority = [];
+      if(smToday && storeMgrCloseDays.has(d)) priority.push(smToday); // her ~2 planned close nights
+      priority.push(...rankedDept); // otherwise alternate the Dept Managers, fewest closes first
+      if(smToday && !priority.includes(smToday)) priority.push(smToday); // last resort: her, off-plan
+      working.forEach(e=>{ if(!priority.includes(e)) priority.push(e); }); // safety net, shouldn't be needed
+
+      const noViolation = e => !(lastCloseDay[e.uid]===d-1 && consecCloses[e.uid]>=2);
+      const underCap = e => e!==storeManager || closeCountByEmp[e.uid] < 2; // her 2-close cap
+      closer = priority.find(e=>noViolation(e) && underCap(e)) || priority.find(noViolation) || priority[0];
+    }
+
+    const others = working.filter(e=>e.uid!==closer.uid);
+    const assign = {}; // uid -> {start, role}
+    const cc = candidatesByEmp[closer.uid];
+    assign[closer.uid] = {start:cc[cc.length-1], role:"close"};
+    if(others.length===1){
+      const oc = candidatesByEmp[others[0].uid];
+      assign[others[0].uid] = {start:oc[0], role:"open"};
+    } else if(others.length>1){
+      // Saturday-style 3-manager day: whoever can start earliest opens, the rest split the middle.
+      // Managers with full availability usually share an identical menu, so this is a tie most weeks —
+      // broken by a week-to-week rotation (rather than always favoring the same array position) so
+      // nobody ends up permanently stuck as "always open, never mid" or vice versa.
+      others.slice().sort((a,b)=>{
+        const diff = candidatesByEmp[a.uid][0]-candidatesByEmp[b.uid][0];
+        if(diff!==0) return diff;
+        return ((managerEmps.indexOf(a)+weekIndex)%others.length) - ((managerEmps.indexOf(b)+weekIndex)%others.length);
+      }).forEach((emp,i)=>{
+        const cands = candidatesByEmp[emp.uid];
+        assign[emp.uid] = {start: i===0 ? cands[0] : cands[Math.floor(cands.length/2)], role: i===0 ? "open" : "mid"};
+      });
     }
 
     working.forEach(emp=>{
@@ -865,6 +927,11 @@ function assignManagerCoverage(week, weekIndex, managerEmps, windowsByEmp, manua
         week.schedule[emp.uid][d] = {start:pick.start, end:pick.start+FIXED_SHIFT_BREAK_HOURS+take, unpaidBreak:FIXED_SHIFT_BREAK_HOURS, shiftRole:pick.role};
         budgetRemaining -= take;
         daysAssignedByEmp[emp.uid] += 1;
+        if(pick.role==="close"){
+          consecCloses[emp.uid] = (lastCloseDay[emp.uid]===d-1) ? consecCloses[emp.uid]+1 : 1;
+          lastCloseDay[emp.uid] = d;
+          closeCountByEmp[emp.uid] += 1;
+        }
       }
     });
   });
@@ -880,13 +947,16 @@ function assignManagerCoverage(week, weekIndex, managerEmps, windowsByEmp, manua
 //     rate (day COUNT shrinks first, the daily hours themselves never do, except when the shared budget
 //     below runs short). Anyone already naturally restricted to <=5 available days (like a fixed weekly
 //     day off) just works all of those days at their fixed rate; anyone fully available gets 2 days off
-//     chosen by pickFlexRequiredWorkDays (Sun+Mon by default).
+//     chosen by pickFlexRequiredWorkDays (Sat+Sun by default — currently just Tatiana, giving her Mon-Fri).
+//     The FT Sales Advisor (Mohamad) additionally gets up to 3 spread-out closing shifts within his week.
 //  2. Nobody on the whole staff works more than 5 days a week (2+ days off). Employees with no
 //     Hours/Day set keep their existing flexible/waterfilled shift lengths, just restricted to at most
-//     their 5 longest-window active days instead of every day they're available.
+//     their 5 longest-window active days instead of every day they're available. Part-time Sales Advisors
+//     additionally never get a shift shorter than PT_MIN_SHIFT_HOURS (3.5h) — see assignEmployeeWaterfill.
 //  3. Managers (title contains "MGR") are covered every day: Sun-Fri always has exactly 2 on (an opener
 //     + a closer), Saturday always has all 3 (opener + mid-shift + closer) — see assignManagerCoverage().
-//     Whoever's shift ends latest each day is always a manager, so there's always a manager closing.
+//     There's always a manager closing; the Store Manager closes exactly 2 nights/week and the Department
+//     Managers split the rest, balanced so neither closes 3 nights in a row.
 // Managers are filled first out of the week's shared Total Hours Budget, then other fixed-hours employees
 // (in roster order), then everyone else. Manually-edited cells are always left alone, but their hours are
 // subtracted from the shared budget before any auto-fill happens.
@@ -957,16 +1027,26 @@ function generateWeek(weekId){
     const maxDaysByCap = Math.floor(personalRemaining/emp.fixedDailyHours + 1e-9);
     if(workDays.length > maxDaysByCap) workDays = workDays.slice(0, maxDaysByCap);
 
+    // The FT Sales Advisor role (currently just Mohamad) needs some closing shifts within their week —
+    // up to 3, spread out rather than back-to-back. Picking every other day from their sorted workdays
+    // guarantees no two chosen days are ever adjacent (see 2026-08-25 note).
+    const isFTSalesAdvisor = /FT SALES ADVISOR/i.test(emp.title);
+    const closeDaysSet = new Set();
+    if(isFTSalesAdvisor){
+      workDays.slice().sort((a,b)=>a-b).filter((d,idx)=>idx%2===0).slice(0,3).forEach(d=>closeDaysSet.add(d));
+    }
+
     [0,1,2,3,4,5,6].forEach(d=>{
       if(manualArr[d]) return; // manual cells are never touched
       if(!workDays.includes(d)){ schedArr[d] = null; return; }
       const {start,end} = windows[d];
+      const wantsClose = closeDaysSet.has(d);
 
       // The 8-hour full-timer shift menu: pick one of the fixed start times for this day of week whose
       // full 9-hour span (8 worked + 1 unpaid lunch) fits inside the employee's real window. Anyone else
       // with a different Hours/Day value (e.g. a 4-hour fixed PT shift) keeps the old flexible clip.
       if(emp.fixedDailyHours === 8){
-        const menuStart = pickFixedShiftStart(d, {start,end});
+        const menuStart = pickFixedShiftStart(d, {start,end}, wantsClose);
         if(menuStart !== null){
           const worked = FIXED_SHIFT_SPAN_HOURS - FIXED_SHIFT_BREAK_HOURS; // 8
           const take = Math.min(worked, budgetRemaining);
@@ -974,6 +1054,7 @@ function generateWeek(weekId){
             // If the shared budget can't cover the full 8, shorten from the end of the shift; the start
             // time and the break stay put.
             schedArr[d] = {start:menuStart, end: menuStart+FIXED_SHIFT_BREAK_HOURS+take, unpaidBreak: FIXED_SHIFT_BREAK_HOURS};
+            if(wantsClose) schedArr[d].shiftRole = "close";
             budgetRemaining -= take;
           } else {
             schedArr[d] = null;
@@ -1010,7 +1091,8 @@ function generateWeek(weekId){
     const restrictedWindows = [0,1,2,3,4,5,6].map(d=>availableDays.includes(d) ? windows[d] : null);
     const personalRemaining = Math.max(0, emp.cap - manualUsedByEmp[emp.uid]);
     const capForThisPass = Math.min(personalRemaining, budgetRemaining);
-    const used = assignEmployeeWaterfill(emp, week, restrictedWindows, manualArr, capForThisPass);
+    const minShift = isPTSalesAdvisor(emp) ? PT_MIN_SHIFT_HOURS : 0;
+    const used = assignEmployeeWaterfill(emp, week, restrictedWindows, manualArr, capForThisPass, minShift);
     budgetRemaining = Math.max(0, budgetRemaining - used);
   });
 
@@ -1091,10 +1173,11 @@ function esc(s){ return (s||"").replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;',
 // This only affects display order in the Roster/Schedule tables — the underlying state.employees array
 // (and the roster-order budget-filling priority that depends on it) is left untouched.
 function displayRank(e){
-  if(/MGR/i.test(e.title)) return 0;
-  if(/VISUAL/i.test(e.title)) return 1;
-  if(typeof e.fixedDailyHours==="number" && e.fixedDailyHours>0) return 2;
-  return 3;
+  if(/STORE\s*MGR/i.test(e.title)) return 0; // the Store Manager leads the list, ahead of Dept Managers
+  if(/MGR/i.test(e.title)) return 1;
+  if(/VISUAL/i.test(e.title)) return 2;
+  if(typeof e.fixedDailyHours==="number" && e.fixedDailyHours>0) return 3;
+  return 4;
 }
 function sortedForDisplay(employees){
   return employees.map((e,i)=>({e,i})).sort((a,b)=>{
