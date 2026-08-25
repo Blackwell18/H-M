@@ -55,6 +55,13 @@
   .daycell.manual::after{content:"✎"; position:absolute; top:1px; right:3px; font-size:9px; color:var(--blue);}
   .daycell.conflict{outline:2px solid var(--red); outline-offset:-2px;}
   .daycell .warn{position:absolute; top:1px; left:3px; font-size:10px; color:var(--red);}
+  /* Swap-by-drag edit mode (2026-08-25) */
+  .daycell.swap-draggable{cursor:grab;}
+  .daycell.swap-draggable:active{cursor:grabbing;}
+  .daycell.drag-source{opacity:0.4;}
+  .daycell.drag-over{outline:2px dashed var(--blue); outline-offset:-2px; background:var(--blue-lt) !important;}
+  .daycell.pending-swap{outline:2px dashed #d97706; outline-offset:-3px;}
+  .daycell.pending-swap::before{content:"⇄"; position:absolute; bottom:1px; right:3px; font-size:10px; color:#d97706; font-weight:700;}
   .rowbtns button{margin-right:4px;}
   .toprow{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
   .weekbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
@@ -138,10 +145,13 @@
         <li><b>Staff Roster</b> — add, edit, or remove employees. Each person has a job title, a weekly target/max, a minimum hours floor, an optional <b>Hours/Day</b>, and a day-by-day availability pattern.</li>
         <li><b>Store Hours</b> — the store's open/close time for each day of the week. Shifts are never generated outside these hours. Click <b>Apply Store Hours</b> to confirm any changes.</li>
         <li><b>Time-Off Requests</b> — log a request for a specific employee and week; those days are automatically skipped when you generate that week's schedule.</li>
-        <li><b>Schedule</b> — pick or add a week, set its start date (click <b>Apply Date</b> to confirm), enter a <b>Total Hours Budget</b> for that week (click <b>Apply Budget</b> to confirm — required before Generate will run), then click <b>Generate Week</b> to auto-draft shifts. Click any day cell to fine-tune it by hand afterward. Manually edited cells are marked with a small ✎ and are never overwritten by Generate.</li>
+        <li><b>Schedule</b> — pick or add a week, set its start date (click <b>Apply Date</b> to confirm), enter a <b>Total Hours Budget</b> for that week (click <b>Apply Budget</b> to confirm — required before Generate will run), then click <b>Generate Week</b> to auto-draft shifts. Click any day cell to fine-tune it by hand afterward, or click <b>✎ Edit Schedule</b> to drag-and-drop swap two shifts at once (see "Swapping shifts by drag-and-drop" below). Manually edited or swapped cells are marked with a small ✎ and are never overwritten by Generate.</li>
         <li><b>Week History</b> — every week you've ever clicked Generate on, kept permanently in the cloud so it's the same list no matter which computer you open this on. Click any row to view that week read-only.</li>
       </ol>
       <p class="hint">Every change anywhere in this app needs a button click to confirm it (Apply Changes, Apply Store Hours, Apply Date, Apply Budget, or a shift's Save button) — nothing applies just from typing or clicking away. Once confirmed, it's saved automatically to this browser; no separate save step.</p>
+      <h3>Swapping shifts by drag-and-drop</h3>
+      <p>Click <b>✎ Edit Schedule (drag to swap)</b> on the Schedule tab to switch two shifts around by hand — handy for trading a day between two managers, or moving someone's shift to a different day. While it's on, drag any day cell (a shift, or an empty OFF day) onto another day cell — for the same person or a different one — and the two swap places. Swapped cells get an amber dashed outline (⇄) so you can see everything you've changed before committing. Drag as many swaps as you want, then either click <b>✓ Apply Changes</b> to commit all of them at once, or <b>✕ Cancel</b> to throw them all away and leave the schedule exactly as it was.</p>
+      <p class="small">Applied swaps are locked the same way any manual edit is (✎), so Generate Week won't overwrite them later. If a swap would break one of the app's scheduling rules — someone goes over their weekly hours, a manager ends up closing 3 nights in a row, a day loses its manager coverage, a Part-Time Sales Advisor's shift ends up shorter than 3.5 hours, or a shift lands outside someone's usual availability/store hours on its new day — the swap still goes through (you're the manager, you may be doing this on purpose), but a warning banner lists exactly what it broke so nothing slips by unnoticed.</p>
       <h3>Total Hours Budget</h3>
       <p>Each week has its own <b>Total Hours Budget</b> — the combined hours for the entire staff that week (e.g. 130). Generate always respects: each employee's own availability, store hours, time-off requests, and their individual Min/Max Hrs — the weekly budget is an <i>additional</i> ceiling on top of all of that, not a replacement for it.</p>
       <p>When the budget isn't enough to cover everyone at their normal individual target, <b>anyone with an Hours/Day value set is filled first</b> — they get scheduled toward their own normal target before anyone else. Whatever's left of the budget then goes to everyone else (no Hours/Day value set): first, every one of them is guaranteed at least their own <b>Min Hrs</b> floor (split fairly across everyone if the budget can't stretch to cover every floor in full, rather than fully funding whoever's earlier on the roster and leaving whoever's later with zero) — then any budget still left over tops people up toward their individual Weekly Target, in roster order. If the budget is tight enough that even everyone's floor can't be fully covered, hours are shared out proportionally rather than concentrated on one part of the list.</p>
@@ -243,7 +253,20 @@
       <button class="btn-primary" id="btnGenerate">⚡ Generate Week</button>
       <button class="btn-light" id="btnResetWeek">↺ Reset Week (clear all)</button>
       <button class="btn-light" id="btnExportCsv">⬇ Export CSV</button>
+      <button class="btn-light" id="btnEditSchedule">✎ Edit Schedule (drag to swap)</button>
+      <button class="btn-primary" id="btnApplySwaps" style="display:none;">✓ Apply Changes</button>
+      <button class="btn-light" id="btnCancelSwaps" style="display:none;">✕ Cancel</button>
       <span class="small" style="margin-left:auto;">✎ = manually edited &nbsp;|&nbsp; click any day cell to edit</span>
+    </div>
+    <p class="hint no-print" id="scheduleEditHint" style="display:none; margin-top:-6px; color:#92400e; font-weight:600;">Editing: drag any shift (or empty day) onto another day to swap them. Swapped cells are outlined in amber (⇄) until you click Apply Changes — click Cancel to discard everything instead.</p>
+    <div id="swapWarningBanner" class="card no-print" style="display:none; background:var(--red-lt); border-color:#f3b4b4;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+        <div>
+          <b style="color:#991b1b;">⚠ That swap was applied, but it breaks the following rule(s):</b>
+          <ul id="swapWarningList" style="margin:6px 0 0 18px; padding:0; color:#991b1b;"></ul>
+        </div>
+        <button class="btn-light btn-sm" id="btnDismissSwapWarning">✕ Dismiss</button>
+      </div>
     </div>
     <p class="hint no-print" id="budgetHint" style="margin-top:-6px;">Employees with an Hours/Day value set (Staff Roster) work that many hours on every scheduled day and are filled toward their normal target first; whatever's left of the budget spreads across everyone else. Nobody works more than 5 days a week. Generate won't run until a budget is set. Manually-added hours count against the budget too, and can push it over — you'll see a warning here, but nothing is blocked.</p>
     <div id="printArea">
@@ -1167,6 +1190,7 @@ function weeklyHours(week, empUid){
 /* ===================== RENDER: TABS ===================== */
 document.querySelectorAll("nav button").forEach(btn=>{
   btn.addEventListener("click", ()=>{
+    if(btn.dataset.tab!=="schedule" && scheduleEditMode) cancelScheduleEdit();
     document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
     document.querySelectorAll("main section").forEach(s=>s.classList.remove("active"));
     btn.classList.add("active");
@@ -1448,6 +1472,7 @@ function renderWeekSelector(){
   budgetInput.style.borderColor = (typeof week.budgetHours==="number" && week.budgetHours>0) ? "" : "var(--red)";
 }
 document.getElementById("weekSelect").addEventListener("change", (e)=>{
+  if(scheduleEditMode) cancelScheduleEdit();
   state.activeWeekId = e.target.value;
   renderSchedule();
   document.getElementById("weekStartInput").value = activeWeek().startDate;
@@ -1473,6 +1498,7 @@ document.getElementById("btnApplyBudget").addEventListener("click", ()=>{
   showToast(activeWeek().budgetHours ? "Total Hours Budget applied." : "Budget cleared.");
 });
 document.getElementById("btnAddWeek").addEventListener("click", ()=>{
+  if(scheduleEditMode) cancelScheduleEdit();
   const n = state.nextWeekNum++;
   const prevStart = activeWeek().startDate;
   const newStart = addDaysISO(prevStart, 7);
@@ -1483,6 +1509,7 @@ document.getElementById("btnAddWeek").addEventListener("click", ()=>{
   showToast("New week added — set a Total Hours Budget before generating it.");
 });
 document.getElementById("btnDupWeek").addEventListener("click", ()=>{
+  if(scheduleEditMode) cancelScheduleEdit();
   const src = activeWeek();
   const n = state.nextWeekNum++;
   const newStart = addDaysISO(src.startDate, 7);
@@ -1501,6 +1528,7 @@ document.getElementById("btnDupWeek").addEventListener("click", ()=>{
   showToast("Duplicated as "+w.label+" — shifts carried over as a starting point (not locked; Generate Week will refresh them), shifted +7 days.");
 });
 document.getElementById("btnDelWeek").addEventListener("click", ()=>{
+  if(scheduleEditMode) cancelScheduleEdit();
   if(state.weeks.length===1){ alert("You need at least one week."); return; }
   if(!confirm("Delete "+activeWeek().label+"? This can't be undone.")) return;
   state.weeks = state.weeks.filter(w=>w.id!==state.activeWeekId);
@@ -1509,6 +1537,7 @@ document.getElementById("btnDelWeek").addEventListener("click", ()=>{
   markDirty(); renderAll();
 });
 document.getElementById("btnGenerate").addEventListener("click", ()=>{
+  if(scheduleEditMode) cancelScheduleEdit();
   const week = activeWeek();
   if(typeof week.budgetHours !== "number" || week.budgetHours <= 0){
     alert("Enter a Total Hours Budget for "+week.label+" before generating — it's required for every week.");
@@ -1521,6 +1550,7 @@ document.getElementById("btnGenerate").addEventListener("click", ()=>{
   archiveWeekSnapshot(week);
 });
 document.getElementById("btnResetWeek").addEventListener("click", ()=>{
+  if(scheduleEditMode) cancelScheduleEdit();
   if(!confirm("Clear every shift in "+activeWeek().label+"? This removes manual edits too.")) return;
   resetWeek(state.activeWeekId);
   renderSchedule();
@@ -1531,6 +1561,159 @@ document.getElementById("btnRefreshHistory").addEventListener("click", loadHisto
 document.getElementById("btnCloseHistoryDetail").addEventListener("click", ()=>{
   document.getElementById("historyDetailCard").style.display = "none";
 });
+
+/* ---- schedule edit mode: drag-and-drop shift swapping (2026-08-25) ---- */
+// Lets a store manager fix a schedule by hand without retyping shift times: click "Edit Schedule" to
+// enter a staging mode, drag any day cell onto another to swap their contents (works across employees,
+// across days, and with empty/OFF cells), review the pending swaps (outlined in amber), then either
+// Apply (commits everything at once, locks the touched cells as manual so Generate never re-overwrites
+// them, and runs a rule check) or Cancel (discards the staged changes, nothing is touched).
+let scheduleEditMode = false;
+let editStagedSchedule = null; // {empUid: [7 shift-or-null]} — working copy while staging swaps
+let editDirtyCells = new Set(); // "empUid|day" keys touched by at least one swap
+
+function startScheduleEdit(){
+  const week = activeWeek();
+  scheduleEditMode = true;
+  editStagedSchedule = {};
+  state.employees.forEach(e=>{
+    editStagedSchedule[e.uid] = (week.schedule[e.uid] || [null,null,null,null,null,null,null]).map(s=>s?{...s}:null);
+  });
+  editDirtyCells = new Set();
+  document.getElementById("btnEditSchedule").style.display = "none";
+  document.getElementById("btnApplySwaps").style.display = "";
+  document.getElementById("btnCancelSwaps").style.display = "";
+  document.getElementById("scheduleEditHint").style.display = "";
+  document.getElementById("swapWarningBanner").style.display = "none";
+  renderSchedule();
+}
+
+function cancelScheduleEdit(){
+  const hadPending = editDirtyCells.size > 0;
+  scheduleEditMode = false;
+  editStagedSchedule = null;
+  editDirtyCells = new Set();
+  document.getElementById("btnEditSchedule").style.display = "";
+  document.getElementById("btnApplySwaps").style.display = "none";
+  document.getElementById("btnCancelSwaps").style.display = "none";
+  document.getElementById("scheduleEditHint").style.display = "none";
+  renderSchedule();
+  if(hadPending) showToast("Edits discarded — nothing was changed.");
+}
+
+function performStagedSwap(uidA, dayA, uidB, dayB){
+  const tmp = editStagedSchedule[uidA][dayA];
+  editStagedSchedule[uidA][dayA] = editStagedSchedule[uidB][dayB];
+  editStagedSchedule[uidB][dayB] = tmp;
+  editDirtyCells.add(uidA+"|"+dayA);
+  editDirtyCells.add(uidB+"|"+dayB);
+}
+
+function maxConsecutiveCloses(week, empUid){
+  let max = 0, cur = 0;
+  for(let d=0; d<7; d++){
+    const s = week.schedule[empUid][d];
+    if(s && s.shiftRole==="close"){ cur++; max = Math.max(max, cur); } else cur = 0;
+  }
+  return max;
+}
+
+// Checks the applied swap against every hard rule the app otherwise enforces automatically (weekly
+// hour caps/floors, no more than 2 consecutive manager closes, manager coverage per day, the PT 3.5h
+// minimum shift, and whether a shift still fits the employee's real availability/store hours on its new
+// day). Returns a list of plain-language violation strings — empty if everything still checks out.
+function validateScheduleSwaps(week, touchedEmpUids, dirtyCells){
+  const warnings = [];
+  const timeOffByEmp = {};
+  state.timeOff.filter(t=>t.weekId===week.id).forEach(t=>{
+    if(!timeOffByEmp[t.empUid]) timeOffByEmp[t.empUid] = new Set();
+    t.days.forEach(d=>timeOffByEmp[t.empUid].add(d));
+  });
+
+  touchedEmpUids.forEach(uid=>{
+    const emp = getEmp(uid);
+    if(!emp) return;
+    const hrs = weeklyHours(week, uid);
+    const hrsStr = hrs%1===0 ? hrs : hrs.toFixed(1);
+    if(hrs > emp.cap + 1e-9){
+      warnings.push(`${emp.name} is now over their weekly cap (${hrsStr}h vs ${emp.cap}h Target/Max).`);
+    } else if(hrs>0 && hrs < emp.minHrs - 1e-9){
+      warnings.push(`${emp.name} is now under their Min Hrs (${hrsStr}h vs ${emp.minHrs}h minimum).`);
+    }
+    if(/MGR/i.test(emp.title)){
+      const mc = maxConsecutiveCloses(week, uid);
+      if(mc>2) warnings.push(`${emp.name} is now closing ${mc} nights in a row (max allowed is 2).`);
+    }
+  });
+
+  const touchedDays = new Set();
+  dirtyCells.forEach(key=>touchedDays.add(parseInt(key.split("|")[1])));
+  touchedDays.forEach(day=>{
+    const cov = dayManagerCoverage(week, day);
+    if(cov.managerCount===0) warnings.push(`${DAY_NAMES_FULL[day]} now has no manager scheduled at all.`);
+    else if(!cov.fullCoverage) warnings.push(`${DAY_NAMES_FULL[day]} now has a gap in manager coverage.`);
+  });
+
+  dirtyCells.forEach(key=>{
+    const [uid, dayStr] = key.split("|");
+    const day = parseInt(dayStr);
+    const emp = getEmp(uid);
+    const s = week.schedule[uid][day];
+    if(!emp || !s) return;
+    const dur = shiftWorkedHours(s);
+    const durStr = dur%1===0 ? dur : dur.toFixed(1);
+    if(isPTSalesAdvisor(emp) && dur>0 && dur < PT_MIN_SHIFT_HOURS - 1e-9){
+      warnings.push(`${emp.name}'s shift on ${DAY_NAMES_FULL[day]} is now only ${durStr}h — shorter than the 3.5h minimum for Part-Time Sales Advisors.`);
+    }
+    const toSet = timeOffByEmp[uid] || new Set();
+    const win = computeDayWindow(emp, day, toSet);
+    if(!win){
+      warnings.push(`${emp.name} isn't normally available (or has time off) on ${DAY_NAMES_FULL[day]}, but now has a shift there.`);
+    } else if(s.start < win.start - 1e-9 || s.end > win.end + 1e-9){
+      warnings.push(`${emp.name}'s shift on ${DAY_NAMES_FULL[day]} (${floatTo12h(s.start)}–${floatTo12h(s.end)}) falls outside their usual availability/store hours that day (${floatTo12h(win.start)}–${floatTo12h(win.end)}).`);
+    }
+  });
+
+  return warnings;
+}
+
+function showScheduleWarnings(warnings){
+  const banner = document.getElementById("swapWarningBanner");
+  document.getElementById("swapWarningList").innerHTML = warnings.map(w=>`<li>${esc(w)}</li>`).join("");
+  banner.style.display = "";
+}
+document.getElementById("btnDismissSwapWarning").addEventListener("click", ()=>{
+  document.getElementById("swapWarningBanner").style.display = "none";
+});
+
+function applyScheduleEdit(){
+  if(editDirtyCells.size===0){ cancelScheduleEdit(); return; }
+  const week = activeWeek();
+  const touchedEmpUids = new Set();
+  editDirtyCells.forEach(key=>{
+    const [uid, dayStr] = key.split("|");
+    const day = parseInt(dayStr);
+    week.schedule[uid][day] = editStagedSchedule[uid][day] ? {...editStagedSchedule[uid][day]} : null;
+    week.manual[uid][day] = true; // lock the swapped cells, same as any other manual edit
+    touchedEmpUids.add(uid);
+  });
+  const warnings = validateScheduleSwaps(week, touchedEmpUids, editDirtyCells);
+  const swapCount = editDirtyCells.size;
+  scheduleEditMode = false;
+  editStagedSchedule = null;
+  editDirtyCells = new Set();
+  document.getElementById("btnEditSchedule").style.display = "";
+  document.getElementById("btnApplySwaps").style.display = "none";
+  document.getElementById("btnCancelSwaps").style.display = "none";
+  document.getElementById("scheduleEditHint").style.display = "none";
+  markDirty();
+  renderSchedule();
+  if(warnings.length) showScheduleWarnings(warnings);
+  else showToast(swapCount+" cell"+(swapCount===1?"":"s")+" swapped and locked — Generate Week won't touch them.");
+}
+document.getElementById("btnEditSchedule").addEventListener("click", startScheduleEdit);
+document.getElementById("btnCancelSwaps").addEventListener("click", cancelScheduleEdit);
+document.getElementById("btnApplySwaps").addEventListener("click", applyScheduleEdit);
 
 function renderSchedule(){
   renderWeekSelector();
@@ -1566,9 +1749,9 @@ function renderSchedule(){
   html += "<th>Hrs</th><th>Min</th><th>Target</th><th>Status</th></tr>";
 
   sortedForDisplay(state.employees).forEach((e,rowIdx)=>{
-    const sched = week.schedule[e.uid] || [null,null,null,null,null,null,null];
+    const sched = scheduleEditMode ? editStagedSchedule[e.uid] : (week.schedule[e.uid] || [null,null,null,null,null,null,null]);
     const manual = week.manual[e.uid] || [false,false,false,false,false,false,false];
-    const hrs = weeklyHours(week, e.uid);
+    const hrs = scheduleEditMode ? sched.reduce((sum,s)=>sum+shiftWorkedHours(s),0) : weeklyHours(week, e.uid);
     let status = "";
     if(hrs>0){
       if(hrs < e.minHrs) status = `<span class="pill pill-under">Under</span>`;
@@ -1589,8 +1772,12 @@ function renderSchedule(){
       const isConflict = toSet.has(i) && s;
       const cls = ["daycell"];
       if(!s) cls.push("off");
-      if(isManual) cls.push("manual");
+      if(isManual && !scheduleEditMode) cls.push("manual");
       if(isConflict) cls.push("conflict");
+      if(scheduleEditMode){
+        cls.push("swap-draggable");
+        if(editDirtyCells.has(e.uid+"|"+i)) cls.push("pending-swap");
+      }
       let label = "OFF";
       if(s){
         const dayHrs = shiftWorkedHours(s);
@@ -1607,7 +1794,35 @@ function renderSchedule(){
   });
   tbl.innerHTML = html;
   tbl.querySelectorAll(".daycell").forEach(td=>{
-    td.addEventListener("click", ()=>openShiftModal(td.dataset.emp, parseInt(td.dataset.day)));
+    if(scheduleEditMode){
+      td.draggable = true;
+      td.addEventListener("dragstart", (ev)=>{
+        ev.dataTransfer.effectAllowed = "move";
+        ev.dataTransfer.setData("text/plain", td.dataset.emp+"|"+td.dataset.day);
+        td.classList.add("drag-source");
+      });
+      td.addEventListener("dragend", ()=>td.classList.remove("drag-source"));
+      td.addEventListener("dragover", (ev)=>{
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = "move";
+        td.classList.add("drag-over");
+      });
+      td.addEventListener("dragleave", ()=>td.classList.remove("drag-over"));
+      td.addEventListener("drop", (ev)=>{
+        ev.preventDefault();
+        td.classList.remove("drag-over");
+        const raw = ev.dataTransfer.getData("text/plain");
+        if(!raw) return;
+        const [srcUid, srcDayStr] = raw.split("|");
+        const srcDay = parseInt(srcDayStr);
+        const dstUid = td.dataset.emp, dstDay = parseInt(td.dataset.day);
+        if(srcUid===dstUid && srcDay===dstDay) return;
+        performStagedSwap(srcUid, srcDay, dstUid, dstDay);
+        renderSchedule();
+      });
+    } else {
+      td.addEventListener("click", ()=>openShiftModal(td.dataset.emp, parseInt(td.dataset.day)));
+    }
   });
 
   renderCoverage(week);
