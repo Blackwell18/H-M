@@ -133,7 +133,7 @@
       <p class="hint" style="margin-top:8px;">This tool is preloaded with Store 758's real staff roster, availability, and store hours — the same data as the Excel workbook. Everything runs in your browser; nothing is uploaded anywhere.</p>
       <h3>Quick start</h3>
       <ol>
-        <li><b>Staff Roster</b> — add, edit, or remove employees. Each person has a job title, a weekly target/max, a minimum hours floor, and a day-by-day availability pattern.</li>
+        <li><b>Staff Roster</b> — add, edit, or remove employees. Each person has a job title, a weekly target/max, a minimum hours floor, an optional <b>Hours/Day</b>, and a day-by-day availability pattern.</li>
         <li><b>Store Hours</b> — the store's open/close time for each day of the week. Shifts are never generated outside these hours. Click <b>Apply Store Hours</b> to confirm any changes.</li>
         <li><b>Time-Off Requests</b> — log a request for a specific employee and week; those days are automatically skipped when you generate that week's schedule.</li>
         <li><b>Schedule</b> — pick or add a week, set its start date (click <b>Apply Date</b> to confirm), enter a <b>Total Hours Budget</b> for that week (click <b>Apply Budget</b> to confirm — required before Generate will run), then click <b>Generate Week</b> to auto-draft shifts. Click any day cell to fine-tune it by hand afterward. Manually edited cells are marked with a small ✎ and are never overwritten by Generate.</li>
@@ -141,12 +141,12 @@
       <p class="hint">Every change anywhere in this app needs a button click to confirm it (Apply Changes, Apply Store Hours, Apply Date, Apply Budget, or a shift's Save button) — nothing applies just from typing or clicking away. Once confirmed, it's saved automatically to this browser; no separate save step.</p>
       <h3>Total Hours Budget</h3>
       <p>Each week has its own <b>Total Hours Budget</b> — the combined hours for the entire staff that week (e.g. 130). Generate always respects: each employee's own availability, store hours, time-off requests, and their individual Min/Max Hrs — the weekly budget is an <i>additional</i> ceiling on top of all of that, not a replacement for it.</p>
-      <p>When the budget isn't enough to cover everyone at their normal individual target, <b>required roles are filled first</b> — anyone whose Target/Max Hrs is 40 (the Store Manager, Dept Managers, FT Sales Advisor, and Visuals) gets scheduled toward their own normal target before anyone else, in roster order. Whatever's left of the budget is then spread across everyone else, also in roster order. If the budget runs out, people further down the list may get zero hours that week — that's expected, not a bug.</p>
+      <p>When the budget isn't enough to cover everyone at their normal individual target, <b>anyone with an Hours/Day value set is filled first</b> — they get scheduled toward their own normal target before anyone else, in roster order. Whatever's left of the budget is then spread across everyone else, also in roster order. If the budget runs out, people further down the list may get zero hours that week — that's expected, not a bug.</p>
       <p>The banner above the schedule grid always shows the running total vs. the budget, and turns red if it's ever over — including from manual edits, which are allowed but flagged rather than blocked.</p>
       <h3>Two more scheduling rules, always on</h3>
       <ul>
-        <li><b>Required roles work fixed 8-hour shifts.</b> The Store Manager, Dept Managers, FT Sales Advisor, and Visuals get 8-hour shifts on every day they work (shorter only if that day's real window is under 8 hours — e.g. Sunday's shorter store hours). Anyone whose availability already limits them to 5 or fewer days just works all of those at 8h each. Anyone fully available gets 2 days off chosen for them: managers rotate who gets the full weekend off from week to week (the others work the weekend and take 2 weekdays off instead, staggered between them), and other required roles (like a Visual) default to Sunday+Monday off.</li>
-        <li><b>Nobody on staff works more than 5 days a week.</b> Everyone gets at least 2 days off, every week — required roles per the rule above, and everyone else by capping Generate to their 5 longest-window available days instead of spreading thin across every day they're available.</li>
+        <li><b>Employees with an Hours/Day value work exactly that many hours on every day they're scheduled.</b> Set it per person in the Staff Roster — e.g. 8 for a full-timer, 4 for someone who always works a short shift. Leave it blank for anyone whose shift length should flex to fill their target instead (the old behavior). A day is only ever shortened below that value if the real window that day is smaller (e.g. Sunday's shorter store hours) or the shared Total Hours Budget runs out — it's never stretched longer. If someone's Hours/Day × available days would push them over their own Weekly Target/Max Hrs, Generate schedules them <i>fewer days</i> at the full Hours/Day amount rather than shortening their shifts. Anyone whose availability already limits them to 5 or fewer days just works all of those at their Hours/Day rate. Anyone fully available gets 2 days off chosen for them: managers (job title containing "MGR") rotate who gets the full weekend off from week to week (the others work the weekend and take 2 weekdays off instead, staggered between them), and everyone else with an Hours/Day value (like a Visual) defaults to Sunday+Monday off.</li>
+        <li><b>Nobody on staff works more than 5 days a week.</b> Everyone gets at least 2 days off, every week — Hours/Day employees per the rule above, and everyone else by capping Generate to their 5 longest-window available days instead of spreading thin across every day they're available.</li>
       </ul>
       <p class="small">Both rules only govern what <b>Generate</b> does automatically. Manual edits can still override them on individual cells if you need an exception — those cells just won't be touched by Generate afterward.</p>
       <h3>Saving your work</h3>
@@ -224,7 +224,7 @@
       <button class="btn-light" id="btnExportCsv">⬇ Export CSV</button>
       <span class="small" style="margin-left:auto;">✎ = manually edited &nbsp;|&nbsp; click any day cell to edit</span>
     </div>
-    <p class="hint no-print" id="budgetHint" style="margin-top:-6px;">Required roles (Store Manager, Dept Managers, FT Sales Advisor, Visuals) work fixed 8-hour shifts and are filled toward their normal target first; whatever's left of the budget spreads across everyone else. Nobody works more than 5 days a week. Generate won't run until a budget is set. Manually-added hours count against the budget too, and can push it over — you'll see a warning here, but nothing is blocked.</p>
+    <p class="hint no-print" id="budgetHint" style="margin-top:-6px;">Employees with an Hours/Day value set (Staff Roster) work that many hours on every scheduled day and are filled toward their normal target first; whatever's left of the budget spreads across everyone else. Nobody works more than 5 days a week. Generate won't run until a budget is set. Manually-added hours count against the budget too, and can push it over — you'll see a warning here, but nothing is blocked.</p>
     <div id="printArea">
       <div class="card">
         <div id="printHeader" style="display:none; margin-bottom:10px;">
@@ -260,6 +260,7 @@
       </div>
       <div class="field"><label>Weekly Target / Max Hrs</label><input type="number" id="empCap" min="0" max="80" step="0.5"></div>
       <div class="field"><label>Min Hrs Floor</label><input type="number" id="empMin" min="0" max="80" step="0.5"></div>
+      <div class="field"><label>Hours/Day (blank = flexible)</label><input type="number" id="empFixedDaily" min="0" max="16" step="0.5" placeholder="e.g. 8"></div>
       <div class="field"><label>Employee ID</label><input type="text" id="empId"></div>
     </div>
     <h3 style="margin-bottom:6px;">Weekly Availability</h3>
@@ -401,6 +402,7 @@ function buildSeedState(){
       uid: "e"+(i+1),
       id, name, title, type,
       minHrs: min, cap: cap,
+      fixedDailyHours: cap>=40 ? 8 : null, // preserves the previous hardcoded "required role = 8h/day" default
       availability: rawAvail.map(parseAvailRawStr)
     };
   });
@@ -467,6 +469,13 @@ function markClean(){
 }
 
 function ensureEmployeeInAllWeeks(){
+  state.employees.forEach(e=>{
+    // migrate employees saved/backed-up before the Hours/Day field existed: preserve the old hardcoded
+    // "required role (cap>=40) = 8h/day" behavior as their default so nothing changes for existing data.
+    // (Only fills it in if the field is entirely missing — never overwrites an explicit null/value the
+    // user already set, e.g. someone who deliberately turned a required role's fixed hours back off.)
+    if(typeof e.fixedDailyHours === "undefined"){ e.fixedDailyHours = e.cap>=40 ? 8 : null; }
+  });
   state.weeks.forEach(w=>{
     state.employees.forEach(e=>{
       if(!w.schedule[e.uid]) w.schedule[e.uid] = [null,null,null,null,null,null,null];
@@ -564,17 +573,20 @@ function pickFlexRequiredWorkDays(emp, availableDays, isManager, flexManagers, w
 
 // Whole-week generation, budget-aware, with two hard scheduling rules layered on top of availability/
 // store hours/time-off:
-//  1. Required roles (Target/Max = 40 — Store Manager, Dept Managers, FT Sales Advisor, Visuals) work
-//     fixed 8-hour shifts (clipped down only if a day's real window is shorter than 8h, e.g. Sunday).
-//     Anyone already naturally restricted to <=5 available days (like a fixed weekly day off) just works
-//     all of those days at 8h each; anyone fully available gets 2 days off chosen by
-//     pickFlexRequiredWorkDays (managers rotate the weekend, others default to Sun+Mon off).
-//  2. Nobody on the whole staff works more than 5 days a week (2+ days off). Non-required employees keep
-//     their existing flexible/waterfilled shift lengths, just restricted to at most their 5
-//     longest-window active days instead of every day they're available.
-// Required roles are filled first (in roster order) out of the week's shared Total Hours Budget; whatever
-// is left goes to everyone else. Manually-edited cells are always left alone, but their hours are
-// subtracted from the shared budget before any auto-fill happens.
+//  1. Any employee with a Hours/Day value set in the Staff Roster (emp.fixedDailyHours — e.g. 8 for a
+//     full-timer, 4 for someone who always works a short shift) works that many hours on every day
+//     they're scheduled (clipped down only if a day's real window is shorter, e.g. a short Sunday), and
+//     is never scheduled for more days than their own Weekly Target/Max Hrs can support at that daily
+//     rate (day COUNT shrinks first, the daily hours themselves never do, except when the shared budget
+//     below runs short). Anyone already naturally restricted to <=5 available days (like a fixed weekly
+//     day off) just works all of those days at their fixed rate; anyone fully available gets 2 days off
+//     chosen by pickFlexRequiredWorkDays (managers rotate the weekend, others default to Sun+Mon off).
+//  2. Nobody on the whole staff works more than 5 days a week (2+ days off). Employees with no
+//     Hours/Day set keep their existing flexible/waterfilled shift lengths, just restricted to at most
+//     their 5 longest-window active days instead of every day they're available.
+// Fixed-hours employees are filled first (in roster order) out of the week's shared Total Hours Budget;
+// whatever is left goes to everyone else. Manually-edited cells are always left alone, but their hours
+// are subtracted from the shared budget before any auto-fill happens.
 function generateWeek(weekId){
   const week = getWeek(weekId);
   if(typeof week.budgetHours !== "number" || week.budgetHours <= 0) return; // caller must validate first
@@ -603,8 +615,11 @@ function generateWeek(weekId){
 
   let budgetRemaining = Math.max(0, week.budgetHours - manualTotal);
 
-  const requiredEmps = state.employees.filter(e=>e.cap>=40);
-  const otherEmps = state.employees.filter(e=>e.cap<40);
+  // "Fixed" employees have a per-day hours requirement set in the Staff Roster (emp.fixedDailyHours) —
+  // e.g. 8 for a full-timer, 4 for someone who always works a short shift. Everyone else is "flex" and
+  // keeps the old variable-length waterfilled behavior.
+  const fixedEmps = state.employees.filter(e=>typeof e.fixedDailyHours==="number" && e.fixedDailyHours>0);
+  const flexEmps = state.employees.filter(e=>!(typeof e.fixedDailyHours==="number" && e.fixedDailyHours>0));
 
   const windowsByEmp = {};
   state.employees.forEach(emp=>{
@@ -612,16 +627,16 @@ function generateWeek(weekId){
     windowsByEmp[emp.uid] = [0,1,2,3,4,5,6].map(d=>computeDayWindow(emp,d,timeOffSet));
   });
 
-  // Figure out which required employees actually need the flex-days-off treatment (fully/near-fully
+  // Figure out which fixed-hours employees actually need the flex-days-off treatment (fully/near-fully
   // available), and which manager, if any, is up for the full weekend off this week.
-  const flexManagers = requiredEmps.filter(emp=>{
+  const flexManagers = fixedEmps.filter(emp=>{
     const manualArr = week.manual[emp.uid];
     const avail = [0,1,2,3,4,5,6].filter(d=>windowsByEmp[emp.uid][d]!==null && !manualArr[d]);
     return avail.length > 5 && /MGR/i.test(emp.title);
   });
   const weekendOffMgrUid = flexManagers.length ? flexManagers[weekIndex % flexManagers.length].uid : null;
 
-  requiredEmps.forEach(emp=>{
+  fixedEmps.forEach(emp=>{
     const windows = windowsByEmp[emp.uid];
     const manualArr = week.manual[emp.uid];
     const schedArr = week.schedule[emp.uid];
@@ -634,11 +649,17 @@ function generateWeek(weekId){
       workDays = pickFlexRequiredWorkDays(emp, availableDays, /MGR/i.test(emp.title), flexManagers, weekendOffMgrUid);
     }
 
+    // Never schedule more days than this employee's own Weekly Target/Max Hrs can support at their fixed
+    // Hours/Day rate — reduce the day COUNT rather than shrinking below their fixed daily hours.
+    const personalRemaining = Math.max(0, emp.cap - manualUsedByEmp[emp.uid]);
+    const maxDaysByCap = Math.floor(personalRemaining/emp.fixedDailyHours + 1e-9);
+    if(workDays.length > maxDaysByCap) workDays = workDays.slice(0, maxDaysByCap);
+
     [0,1,2,3,4,5,6].forEach(d=>{
       if(manualArr[d]) return; // manual cells are never touched
       if(!workDays.includes(d)){ schedArr[d] = null; return; }
       const {start,end} = windows[d];
-      const maxFeas = Math.min(end-start, 8.0); // fixed 8h shift, clipped if the day's window is shorter
+      const maxFeas = Math.min(end-start, emp.fixedDailyHours); // clipped if the day's window is shorter
       const take = Math.min(maxFeas, budgetRemaining);
       if(take>0){
         schedArr[d] = {start:start, end:start+take};
@@ -649,7 +670,7 @@ function generateWeek(weekId){
     });
   });
 
-  otherEmps.forEach(emp=>{
+  flexEmps.forEach(emp=>{
     const windows = windowsByEmp[emp.uid];
     const manualArr = week.manual[emp.uid];
     let availableDays = [0,1,2,3,4,5,6].filter(d=>windows[d]!==null && !manualArr[d]);
@@ -703,19 +724,22 @@ document.querySelectorAll("nav button").forEach(btn=>{
 /* ===================== RENDER: ROSTER ===================== */
 function renderRoster(){
   const tbl = document.getElementById("rosterTable");
-  let html = "<tr><th class='leftalign'>Name</th><th class='leftalign'>Job Title</th><th>Type</th><th>Min Hrs</th><th>Target/Max</th><th>Availability Summary</th><th>Actions</th></tr>";
+  let html = "<tr><th class='leftalign'>Name</th><th class='leftalign'>Job Title</th><th>Type</th><th>Min Hrs</th><th>Target/Max</th><th>Hrs/Day</th><th class='leftalign'>Availability Summary</th><th>Actions</th></tr>";
   state.employees.forEach(e=>{
     const summary = e.availability.map((a,i)=>{
       if(a.mode==="off") return null;
       if(a.mode==="full") return DAY_NAMES[i];
       return DAY_NAMES[i]+" "+a.windows.map(w=>w.start+"-"+w.end).join("/");
     }).filter(Boolean).join(", ");
+    const fixedDisplay = (typeof e.fixedDailyHours==="number" && e.fixedDailyHours>0)
+      ? `<b>${e.fixedDailyHours}</b>` : `<span class="small" style="color:#94a3b8;">Flexible</span>`;
     html += `<tr>
       <td class="leftalign"><b>${esc(e.name)}</b></td>
       <td class="leftalign">${esc(e.title)}</td>
       <td>${e.type}</td>
       <td>${e.minHrs}</td>
       <td>${e.cap}</td>
+      <td>${fixedDisplay}</td>
       <td class="leftalign small">${esc(summary)||"<i>none set</i>"}</td>
       <td class="rowbtns"><button class="btn-light btn-sm" data-edit="${e.uid}">Edit</button><button class="btn-danger btn-sm" data-del="${e.uid}">Delete</button></td>
     </tr>`;
@@ -738,13 +762,14 @@ function esc(s){ return (s||"").replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;',
 let editingEmpUid = null;
 function openEmpModal(uid){
   editingEmpUid = uid;
-  const e = uid ? getEmp(uid) : {name:"",title:"",type:"PT",cap:29.5,minHrs:15,id:"",availability:[{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]}]};
+  const e = uid ? getEmp(uid) : {name:"",title:"",type:"PT",cap:29.5,minHrs:15,fixedDailyHours:null,id:"",availability:[{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]},{mode:"off",windows:[]}]};
   document.getElementById("empModalTitle").textContent = uid ? "Edit Employee" : "Add Employee";
   document.getElementById("empName").value = e.name;
   document.getElementById("empTitle").value = e.title;
   document.getElementById("empType").value = e.type;
   document.getElementById("empCap").value = e.cap;
   document.getElementById("empMin").value = e.minHrs;
+  document.getElementById("empFixedDaily").value = (typeof e.fixedDailyHours==="number") ? e.fixedDailyHours : "";
   document.getElementById("empId").value = e.id;
   renderAvailEditor(e.availability);
   document.getElementById("empModalBackdrop").classList.add("show");
@@ -827,6 +852,7 @@ document.getElementById("empSaveBtn").addEventListener("click", ()=>{
     type: document.getElementById("empType").value,
     cap: parseFloat(document.getElementById("empCap").value)||0,
     minHrs: parseFloat(document.getElementById("empMin").value)||0,
+    fixedDailyHours: (()=>{ const v = parseFloat(document.getElementById("empFixedDaily").value); return (isFinite(v) && v>0) ? v : null; })(),
     id: document.getElementById("empId").value.trim(),
     availability: collectAvailFromEditor()
   };
