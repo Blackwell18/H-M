@@ -772,6 +772,34 @@ function computeDayWindow(emp, dayIdx, timeOffSet){
 const PT_MIN_SHIFT_HOURS = 3.5;
 function isPTSalesAdvisor(emp){ return emp.type==="PT" && /SALES ADVISOR/i.test(emp.title); }
 
+// Approximate daily peak-sales windows (2026-10-06), day index 0=Sun..6=Sat, used so flex-employee shift
+// times get pulled toward each day's own busiest hours instead of everyone defaulting to the earliest
+// possible start. IMPORTANT CAVEAT: these were eyeballed from six "Hourly net sales" chart screenshots the
+// user shared (one sample day each for Sun/Mon/Tue/Wed/Thu/Sat; no Friday sample was provided) — they are
+// NOT derived from exact hourly sales figures, just the shape of the curves in those images, and only one
+// day's sample per day-of-week. Fri is deliberately left empty (no data to even guess from) rather than
+// invented. Treat this as a rough starting point; if the user can export real hour-by-hour sales data later,
+// replace these ranges with ones computed from that instead of a single visually-read sample day.
+const PEAK_WINDOWS = {
+  0: [{start:11, end:14}],                        // Sunday (sampled 2026-09-27): plateau ~11am-2pm, smaller bump ~4pm
+  1: [{start:10.5, end:12}, {start:16, end:18}],   // Monday (sampled 2026-09-28): late-morning + late-afternoon bumps
+  2: [{start:11, end:13}, {start:15, end:17}],     // Tuesday (sampled 2026-09-29): sharp late-morning peak, smaller afternoon one
+  3: [{start:10.5, end:13.5}, {start:17, end:19}], // Wednesday (sampled 2026-09-30): late morning, then early evening
+  4: [{start:10.5, end:13}],                       // Thursday (sampled 2026-10-01): late-morning/midday plateau
+  5: [],                                           // Friday: no screenshot sample was provided — left empty rather than guessed
+  6: [{start:13, end:17}],                         // Saturday (sampled 2026-10-03): steady climb to a mid-afternoon peak
+};
+function peakOverlapHours(dayIdx, s, e){
+  const windows = PEAK_WINDOWS[dayIdx];
+  if(!windows || !windows.length) return 0;
+  let total = 0;
+  windows.forEach(w=>{
+    const ov = Math.min(e, w.end) - Math.max(s, w.start);
+    if(ov > 0) total += ov;
+  });
+  return total;
+}
+
 // Distributes `personalCap` hours across one employee's active (non-manual, available) days for the
 // given week, using the same waterfill approach as before (spread evenly, clipped to 8h/day and to
 // each day's real window). If minShiftHours is set, any day whose waterfilled share would land under
@@ -817,12 +845,24 @@ function assignEmployeeWaterfill(emp, week, windows, manualArr, personalCap, min
       take = (maxFeas>=minShiftHours-1e-9 && remainingCap>=minShiftHours-1e-9) ? minShiftHours : 0;
     }
     if(take>0){
+      // Pick where in the day's window this shift falls (2026-10-06): rather than always anchoring to the
+      // earliest possible start (which is how everyone ended up opening at the same clock time every single
+      // day they worked), try every half-hour offset that still fits the window and this shift's length,
+      // and prefer whichever one overlaps that day's estimated peak-sales hours the most (see PEAK_WINDOWS
+      // above). When several offsets tie (including the common case of a day with no peak data, where every
+      // offset ties at zero overlap), rotate the pick by day-of-week and by dayTieBreakSeed (which already
+      // varies per employee and per week) so the day still isn't a fixed clock time every time — variety for
+      // its own sake when there's no coverage reason to prefer one offset over another.
+      const windowDur = end-start;
+      const spare = windowDur - take;
       let s;
-      if(kind==="full"){
-        const windowDur = end-start;
-        const spare = windowDur - take;
-        const offset = Math.min(spare, (d%3)*1.0);
-        s = start+offset;
+      if(spare > 1e-9){
+        const stepsCount = Math.max(1, Math.round(spare/0.5));
+        const offsets = [...new Set(Array.from({length: stepsCount+1}, (_,i)=> Math.min(spare, roundHalf(i*0.5))))];
+        let bestScore = -1;
+        offsets.forEach(off=>{ bestScore = Math.max(bestScore, peakOverlapHours(d, start+off, start+off+take)); });
+        const bestOffsets = offsets.filter(off=> Math.abs(peakOverlapHours(d, start+off, start+off+take) - bestScore) < 1e-9);
+        s = start + bestOffsets[(d + dayTieBreakSeed) % bestOffsets.length];
       } else {
         s = start;
       }
