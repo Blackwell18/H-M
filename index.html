@@ -778,8 +778,9 @@ function isPTSalesAdvisor(emp){ return emp.type==="PT" && /SALES ADVISOR/i.test(
 // that floor either gets bumped up to the floor (when the day's window and remaining budget allow it)
 // or is dropped entirely (schedArr[d]=null) rather than leaving a too-short shift. Returns the total
 // hours actually assigned.
-function assignEmployeeWaterfill(emp, week, windows, manualArr, personalCap, minShiftHours){
+function assignEmployeeWaterfill(emp, week, windows, manualArr, personalCap, minShiftHours, dayTieBreakSeed){
   minShiftHours = minShiftHours || 0;
+  dayTieBreakSeed = dayTieBreakSeed || 0;
   const schedArr = week.schedule[emp.uid];
   let activeDays = [0,1,2,3,4,5,6].filter(d=>windows[d]!==null && !manualArr[d]);
   if(minShiftHours>0 && personalCap>0){
@@ -789,12 +790,15 @@ function assignEmployeeWaterfill(emp, week, windows, manualArr, personalCap, min
     // entirely (e.g. a 15h target over 5 days: 4 days round up to 3.5h = 14h used, nothing left for a
     // legal 5th shift, landing at 14 instead of 15). Instead, only use as many days as the target can
     // actually support at the minimum shift length, picking the longest-window days first — fewer,
-    // properly-sized shifts instead of one that can't be funded.
+    // properly-sized shifts instead of one that can't be funded. Ties (e.g. someone with the same-length
+    // window every day) are broken by a weekIndex-rotated day order rather than plain day-index order —
+    // see the matching note on the "5 longest days" cap in generateWeek() for why a fixed tie-break
+    // systematically starves the same day (Thursday) every single week.
     const maxDaysForFloor = Math.max(1, Math.floor(personalCap/minShiftHours + 1e-9));
     if(activeDays.length > maxDaysForFloor){
       activeDays = activeDays
         .map(d=>({d, dur: windows[d].end - windows[d].start}))
-        .sort((a,b)=>b.dur-a.dur)
+        .sort((a,b)=> (b.dur-a.dur) || ((((a.d - dayTieBreakSeed) % 7) + 7) % 7) - ((((b.d - dayTieBreakSeed) % 7) + 7) % 7))
         .slice(0, maxDaysForFloor)
         .map(x=>x.d);
     }
@@ -1126,18 +1130,68 @@ function generateWeek(weekId){
   // budget can't stretch to cover everyone's floor in full, rather than fully funding whoever's earlier
   // on the roster and leaving whoever's later with nothing), THEN whatever's left tops people up toward
   // their individual targets, in roster order, same priority style as before.
-  const flexInfo = flexEmps.map(emp=>{
+  // Coordinated day-selection for flex employees who have more available days than the 5-day cap allows
+  // (2026-10-06): each such employee used to pick their OWN 5 longest-window days independently. For
+  // anyone with the same-length availability every weekday (a lot of the PT roster), that meant everyone
+  // kept the same two days — Friday and Saturday, simply because the store is open an hour later those
+  // nights — and dropped the same day, most often Thursday, which had no length advantage either way.
+  // That compounded into some days being critically understaffed store-wide (not just light on closers)
+  // while others were double-covered. Found while chasing a "no closers on Thursday" report that turned
+  // out to really be "almost nobody is scheduled on Thursday at all." Fixed by making the day choice
+  // headcount-aware: a running per-day count — seeded with whoever's already scheduled that day
+  // (managers, fixed-hours staff, and any flex employee who has 5 or fewer available days and so doesn't
+  // need to choose) — is kept as the employees who DO need to drop days are processed one at a time; each
+  // one keeps whichever of their available days are currently thinnest store-wide, falling back to their
+  // own longest window only to break a tie, so people's choices spread across the week instead of all
+  // converging on the same two days. Processing order rotates by week so the same person doesn't always
+  // get first pick of a thin day.
+  const dayHeadcount = [0,0,0,0,0,0,0];
+  fixedEmps.forEach(e=>{
+    for(let d=0; d<7; d++){ if(week.schedule[e.uid][d]) dayHeadcount[d]++; }
+  });
+  const flexAvailRaw = flexEmps.map(emp=>{
     const windows = windowsByEmp[emp.uid];
     const manualArr = week.manual[emp.uid];
-    let availableDays = [0,1,2,3,4,5,6].filter(d=>windows[d]!==null && !manualArr[d]);
-    if(availableDays.length > 5){
-      // nobody on staff works more than 5 days — keep the 5 longest-window days, drop the rest
-      availableDays = availableDays
-        .map(d=>({d, dur: windows[d].end - windows[d].start}))
-        .sort((a,b)=>b.dur-a.dur)
-        .slice(0,5)
-        .map(x=>x.d);
-    }
+    const days = [0,1,2,3,4,5,6].filter(d=>windows[d]!==null && !manualArr[d]);
+    return {emp, windows, days};
+  });
+  const finalDaysByUid = {};
+  flexAvailRaw.filter(x=>x.days.length<=5).forEach(x=>{
+    finalDaysByUid[x.emp.uid] = x.days;
+    x.days.forEach(d=>dayHeadcount[d]++);
+  });
+  // Process in "most-constrained-first" order rather than a fixed sequence: at each step, whoever's own
+  // THINNEST available day is currently the most crowded (i.e. they have the fewest good options left)
+  // goes next. Otherwise, whoever gets processed last only sees whatever thin days the people before them
+  // didn't already claim — a fixed or merely weekIndex-rotated order left some thin days under-filled
+  // even though someone who could have covered them was available, just processed too late.
+  const needsCap = flexAvailRaw.filter(x=>x.days.length>5);
+  const remaining = needsCap.slice();
+  const tieSeed = weekIndex % Math.max(1, remaining.length);
+  while(remaining.length){
+    let pickIdx = 0, worstBest = -Infinity;
+    remaining.forEach((x, idx)=>{
+      const bestHc = Math.min(...x.days.map(d=>dayHeadcount[d]));
+      // Among several equally-constrained people, rotate who goes first by week rather than always the
+      // same one (plain roster order would otherwise always favor whoever's earliest in flexEmps).
+      if(bestHc > worstBest || (bestHc === worstBest && ((idx + tieSeed) % remaining.length) === 0)){
+        worstBest = bestHc; pickIdx = idx;
+      }
+    });
+    const x = remaining.splice(pickIdx, 1)[0];
+    const kept = x.days
+      .map(d=>({d, dur: x.windows[d].end - x.windows[d].start, hc: dayHeadcount[d]}))
+      .sort((a,b)=> (a.hc-b.hc) || (b.dur-a.dur))
+      .slice(0,5)
+      .map(y=>y.d);
+    kept.forEach(d=>dayHeadcount[d]++);
+    finalDaysByUid[x.emp.uid] = kept;
+  }
+
+  const flexInfo = flexEmps.map((emp, flexIdx)=>{
+    const windows = windowsByEmp[emp.uid];
+    const manualArr = week.manual[emp.uid];
+    const availableDays = finalDaysByUid[emp.uid];
     const restrictedWindows = [0,1,2,3,4,5,6].map(d=>availableDays.includes(d) ? windows[d] : null);
     const personalRemaining = Math.max(0, emp.cap - manualUsedByEmp[emp.uid]);
     // Upper bound on what this person's own availability could ever support this week, regardless of
@@ -1145,7 +1199,11 @@ function generateWeek(weekId){
     const feasibleMax = restrictedWindows.reduce((sum,w)=> w ? sum+Math.min(w.end-w.start,8) : sum, 0);
     const minTarget = Math.max(0, emp.minHrs - manualUsedByEmp[emp.uid]);
     const minNeeded = Math.min(minTarget, personalRemaining, feasibleMax);
-    return {emp, restrictedWindows, manualArr, personalRemaining, minNeeded, minShift: isPTSalesAdvisor(emp) ? PT_MIN_SHIFT_HOURS : 0};
+    // Separate from the day-selection coordination above — this just varies which day gets dropped when
+    // an individual's OWN min-shift funding (assignEmployeeWaterfill's 3.5h-floor day cap) needs fewer
+    // days than they have windows for, so repeated weeks/employees don't all land on the same pattern.
+    const dayTieBreakSeed = weekIndex + flexIdx;
+    return {emp, restrictedWindows, manualArr, minNeeded, personalRemaining, dayTieBreakSeed, minShift: isPTSalesAdvisor(emp) ? PT_MIN_SHIFT_HOURS : 0};
   });
 
   const totalMinNeeded = flexInfo.reduce((sum,info)=>sum+info.minNeeded, 0);
@@ -1161,8 +1219,52 @@ function generateWeek(weekId){
   });
 
   flexInfo.forEach(info=>{
-    const used = assignEmployeeWaterfill(info.emp, week, info.restrictedWindows, info.manualArr, info.finalTarget, info.minShift);
+    const used = assignEmployeeWaterfill(info.emp, week, info.restrictedWindows, info.manualArr, info.finalTarget, info.minShift, info.dayTieBreakSeed);
     budgetRemaining = Math.max(0, budgetRemaining - used);
+  });
+
+  // Closing-shift coverage for flex/PT staff (2026-10-06): besides the one manager who closes every
+  // night (and Mohamad's up to-3 closing shifts), the store wants a visible crew of closers each
+  // night — 3-4 on a normal weeknight (Mon-Thu), 6-8 on Fri/Sat/Sun. Flex employees' shifts have
+  // already been waterfilled to a length and a day by this point; this pass only REPOSITIONS some of
+  // those shifts — same day, same number of hours, only the time of day moves — from the start of the
+  // person's real availability window to the end of it, for however many people are both already
+  // scheduled that day and actually available right up to closing time that day. Someone whose stated
+  // availability genuinely doesn't reach closing (true for a lot of the PT roster some days, per their
+  // real availability data) can't be made a closer no matter what — that's a real staffing limit, not a
+  // bug, and it's why a thin day can still land under target even after this runs. Scoped to flex/PT
+  // staff only — doesn't touch managers (own closing-quota system above), Mohamad (own system above),
+  // or anyone else with a fixed Hours/Day pattern (e.g. Tatiana's explicit Mon-Fri 8-5), since forcing
+  // those would override an existing, deliberate schedule rather than just filling a gap.
+  const WEEKEND_CLOSE_DAYS = new Set([0,5,6]); // Sun, Fri, Sat — the 3 nights needing the bigger 6-8 crew
+  const closerTargetForDay = d => WEEKEND_CLOSE_DAYS.has(d) ? 8 : 4;
+  const countClosers = (wk,day) => state.employees.reduce((n,e)=>{
+    const s = wk.schedule[e.uid][day];
+    return n + ((s && s.shiftRole==="close") ? 1 : 0);
+  }, 0);
+
+  [0,1,2,3,4,5,6].forEach(d=>{
+    const target = closerTargetForDay(d);
+    let have = countClosers(week, d);
+    if(have >= target) return;
+    const storeCloseH = hhmmToFloat(state.storeHours[d].close);
+    const candidates = flexEmps.filter(emp=>{
+      if(week.manual[emp.uid][d]) return false;
+      const s = week.schedule[emp.uid][d];
+      if(!s || s.shiftRole==="close") return false;
+      const win = windowsByEmp[emp.uid][d];
+      return win && win.end >= storeCloseH - 1e-9;
+    });
+    for(const emp of candidates){
+      if(have >= target) break;
+      const s = week.schedule[emp.uid][d];
+      const dur = s.end - s.start;
+      const win = windowsByEmp[emp.uid][d];
+      s.start = win.end - dur;
+      s.end = win.end;
+      s.shiftRole = "close";
+      have++;
+    }
   });
 
   markDirty();
